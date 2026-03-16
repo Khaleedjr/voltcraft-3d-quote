@@ -134,7 +134,7 @@ const ModelViewer = ({ file, dimensions, className }: ModelViewerProps) => {
   const showDimensionBox = !file && dimensions && (dimensions.x > 0 || dimensions.y > 0 || dimensions.z > 0)
 
   return (
-    <div className={`relative w-full rounded-xl overflow-hidden bg-gray-100 dark:bg-voltcraft-gray-900 ${className || 'h-[400px] md:h-[500px] lg:h-[600px]'}`}>
+    <div className={`relative w-full rounded-lg overflow-hidden bg-gray-100 dark:bg-voltcraft-gray-900 ${className || 'h-[400px] md:h-[500px] lg:h-[600px]'}`}>
       {/* 3D Canvas */}
       <Canvas
         shadows

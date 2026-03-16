@@ -41,7 +41,7 @@ const MaterialSelector = ({ selectedMaterial, onSelectMaterial }: MaterialSelect
               onClick={() => onSelectMaterial(material)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`relative p-4 rounded-xl text-left transition-all ${
+              className={`relative p-4 rounded-lg text-left transition-all ${
                 isSelected
                   ? 'bg-voltcraft-primary/10 border-2 border-voltcraft-primary'
                   : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:border-white/20'
@@ -110,7 +110,7 @@ const MaterialSelector = ({ selectedMaterial, onSelectMaterial }: MaterialSelect
         key={selectedMaterial.id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-white/10"
+        className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10"
       >
         <div className="flex items-start gap-3">
           <Info className="w-5 h-5 text-voltcraft-primary flex-shrink-0 mt-0.5" />

@@ -2,97 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 8%;
+  }
+
+  .dark {
+    /* Matches deep brutalist black #121212 ish */
+    --background: 0 0% 7%; 
+    --foreground: 0 0% 98%;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
 }
 
-html {
-  scroll-behavior: smooth;
+@layer utilities {
+  .brutal-border {
+    @apply border-gray-300 dark:border-white/15;
+  }
+  
+  .glass {
+    @apply bg-white/90 dark:bg-[#141414]/90 backdrop-blur-xl brutal-border border-b;
+  }
+  
+  .glass-card {
+    @apply bg-white dark:bg-[#141414] brutal-border border rounded-none shadow-sm relative;
+  }
+
+  /* Brutalist Nodes for Grid Intersections */
+  .grid-node {
+    @apply absolute w-1.5 h-1.5 bg-black dark:bg-white z-20 pointer-events-none;
+  }
+  .node-tl { @apply -top-[3px] -left-[3px]; }
+  .node-tr { @apply -top-[3px] -right-[3px]; }
+  .node-bl { @apply -bottom-[3px] -left-[3px]; }
+  .node-br { @apply -bottom-[3px] -right-[3px]; }
 }
 
-body {
-  font-family: 'Inter', system-ui, sans-serif;
-  @apply bg-gray-50 dark:bg-[#060912];
-  @apply text-gray-900 dark:text-[#F5F7FA];
-  min-height: 100vh;
-}
-
-/* Custom scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-200 dark:bg-[#0A0F1C];
+  @apply bg-transparent border-l border-gray-300 dark:border-white/10;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 dark:bg-[#3E4C59];
-  border-radius: 4px;
+  @apply bg-voltcraft-gray-400 dark:bg-voltcraft-gray-700 rounded-none;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500 dark:bg-[#616E7C];
+  @apply bg-voltcraft-primary;
 }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #0066FF 0%, #00D4AA 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Glass effect */
-.glass {
-  @apply bg-white/70 dark:bg-[#0A0F1C]/70;
-  backdrop-filter: blur(20px);
-  @apply border border-gray-200 dark:border-white/10;
-}
-
-/* Glow effects */
-.glow-blue {
-  box-shadow: 0 0 30px rgba(0, 102, 255, 0.3);
-}
-
-.glow-green {
-  box-shadow: 0 0 30px rgba(0, 212, 170, 0.3);
-}
-
-/* File drop zone */
-.dropzone-active {
-  border-color: #0066FF !important;
-  background: rgba(0, 102, 255, 0.1) !important;
-}
-
-/* 3D canvas container */
-.model-viewer {
-  /* managed in component or apply conditional */
-}
-
-/* Loading spinner */
-@keyframes spinner {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spinner {
-  animation: spinner 1s linear infinite;
-}
-
-/* Pulse animation for prices */
-@keyframes price-pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-.price-animate {
-  animation: price-pulse 0.3s ease-out;
+::selection {
+  @apply bg-voltcraft-primary/40 text-current;
 }

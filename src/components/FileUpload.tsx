@@ -69,7 +69,7 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
     <div className="w-full">
       <div
         {...getRootProps()}
-        className={`relative border-2 border-dashed rounded-2xl p-8 md:p-12 text-center cursor-pointer transition-all duration-300 ${
+        className={`relative border-2 border-dashed rounded-lg p-8 md:p-12 text-center cursor-pointer transition-all duration-300 ${
           isDragActive
             ? 'border-voltcraft-secondary bg-voltcraft-secondary/10'
             : 'border-gray-300 dark:border-white/20 hover:border-white/30 bg-white dark:bg-voltcraft-dark'

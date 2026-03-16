@@ -68,12 +68,12 @@ Please confirm next steps. Thank you.
       className="space-y-6"
     >
       {/* Main Quote Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-voltcraft-primary/20 to-voltcraft-secondary/20 p-1">
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-voltcraft-primary/20 to-voltcraft-secondary/20 p-1">
         <div className="absolute inset-0 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary opacity-20 blur-3xl" />
         
-        <div className="relative bg-white dark:bg-voltcraft-dark rounded-xl p-6 md:p-8">
+        <div className="relative bg-white dark:bg-voltcraft-dark rounded-lg p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-display font-bold text-gray-900 dark:text-white">Your Quote</h3>
+            <h3 className="text-xl  font-bold text-gray-900 dark:text-white">Your Quote</h3>
             <span className="px-3 py-1 rounded-full bg-voltcraft-primary/20 text-voltcraft-primary text-sm font-medium">
               Instant Quote
             </span>
@@ -86,7 +86,7 @@ Please confirm next steps. Thank you.
               key={quote.totalCost}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="text-5xl md:text-6xl font-display font-bold gradient-text"
+              className="text-5xl md:text-6xl  font-bold text-voltcraft-primary"
             >
               {formatPrice(quote.totalCost)}
             </motion.div>
@@ -97,7 +97,7 @@ Please confirm next steps. Thank you.
           
           {/* Price Breakdown */}
           <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl">
+            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg">
               <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-sm mb-1">
                 <Package className="w-4 h-4" />
                 Material Cost
@@ -107,7 +107,7 @@ Please confirm next steps. Thank you.
               </div>
             </div>
             
-            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl">
+            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg">
               <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-sm mb-1">
                 <Banknote className="w-4 h-4" />
                 Service Fee
@@ -126,7 +126,7 @@ Please confirm next steps. Thank you.
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
         >
           <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-xs sm:text-sm mb-2">
             <Clock className="w-4 h-4 flex-shrink-0 text-voltcraft-primary" />
@@ -141,7 +141,7 @@ Please confirm next steps. Thank you.
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
         >
           <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-xs sm:text-sm mb-2">
             <Scale className="w-4 h-4 flex-shrink-0 text-voltcraft-primary" />
@@ -156,7 +156,7 @@ Please confirm next steps. Thank you.
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
         >
           <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-xs sm:text-sm mb-2">
             <Ruler className="w-4 h-4 flex-shrink-0 text-voltcraft-primary" />
@@ -171,7 +171,7 @@ Please confirm next steps. Thank you.
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+          className="p-3 sm:p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
         >
           <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-xs sm:text-sm mb-2">
             <Layers className="w-4 h-4 flex-shrink-0 text-voltcraft-primary" />
@@ -184,7 +184,7 @@ Please confirm next steps. Thank you.
       </div>
       
       {/* Model Info */}
-      <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800">
+      <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800">
         <h4 className="text-sm font-medium text-gray-600 dark:text-voltcraft-gray-400 mb-3 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-voltcraft-primary" />
           Print Configuration
@@ -226,7 +226,7 @@ Please confirm next steps. Thank you.
       <button
         type="button"
         onClick={handleWhatsAppQuote}
-        className="w-full mt-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-xl font-semibold text-gray-900 dark:text-white transition-colors flex items-center justify-center gap-2"
+        className="w-full mt-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-gray-900 dark:text-white transition-colors flex items-center justify-center gap-2"
       >
         <MessageCircle className="w-5 h-5" />
         Send Quote via WhatsApp

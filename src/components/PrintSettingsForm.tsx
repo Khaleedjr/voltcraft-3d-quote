@@ -51,7 +51,7 @@ const PrintSettingsForm = ({ settings, onSettingsChange, availableColors }: Prin
               whileTap={{ scale: 0.95 }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 settings.color === color
-                  ? 'bg-voltcraft-primary text-black'
+                  ? 'bg-voltcraft-primary text-white'
                   : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-voltcraft-gray-800 text-gray-900 dark:text-white hover:border-voltcraft-gray-600'
               }`}
             >

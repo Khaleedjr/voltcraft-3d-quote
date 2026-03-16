@@ -20,9 +20,8 @@ const PropertyBar = ({ value, max = 5, color = 'voltcraft-primary' }: { value: n
       <div
         key={i}
         className={`h-2 w-6 rounded-full ${
-          i < value ? `bg-${color}` : 'bg-voltcraft-gray-700'
+          i < value ? `bg-${color}` : 'bg-gray-200 dark:bg-voltcraft-gray-700'
         }`}
-        style={{ backgroundColor: i < value ? (color === 'voltcraft-primary' ? '#0066FF' : '#00D4AA') : undefined }}
       />
     ))}
   </div>
@@ -46,8 +45,8 @@ const MaterialsPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 dark:text-white">
-            Materials <span className="gradient-text">Guide</span>
+          <h1 className="text-3xl md:text-4xl   font-bold   text-gray-900 dark:text-white">
+            Materials <span className="text-voltcraft-primary">Guide</span>
           </h1>
           <p className="mt-4 text-gray-600 dark:text-voltcraft-gray-400 max-w-2xl mx-auto">
             Choose the right material for your project. Each material has unique properties 
@@ -66,7 +65,7 @@ const MaterialsPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => setSelectedMaterial(mat)}
-                className={`w-full p-4 rounded-xl text-left transition-all ${
+                className={`w-full p-4 rounded-lg text-left transition-all ${
                   selectedMaterial.id === mat.id
                     ? 'bg-voltcraft-primary/20 border-2 border-voltcraft-primary'
                     : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
@@ -92,19 +91,19 @@ const MaterialsPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="lg:col-span-2"
           >
-            <div className="bg-white dark:bg-voltcraft-dark rounded-2xl border border-gray-200 dark:border-voltcraft-gray-800 overflow-hidden">
+            <div className="bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800 overflow-hidden">
               {/* Header */}
-              <div className="p-6 md:p-8 bg-gradient-to-r from-voltcraft-primary/10 to-voltcraft-secondary/10 border-b border-gray-200 dark:border-voltcraft-gray-800">
+              <div className="p-6 md:p-8 bg-voltcraft-primary/10 border-b border-gray-200 dark:border-voltcraft-gray-800">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl md:text-3xl font-display font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-2xl md:text-3xl   font-bold   text-gray-900 dark:text-white">
                       {selectedMaterial.shortName}
                     </h2>
                     <p className="text-gray-600 dark:text-voltcraft-gray-400 mt-1">{selectedMaterial.name}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">Price per gram</p>
-                    <p className="text-3xl font-bold gradient-text">₦{selectedMaterial.pricePerGram}</p>
+                    <p className="text-3xl  font-bold   text-voltcraft-primary">₦{selectedMaterial.pricePerGram}</p>
                   </div>
                 </div>
               </div>
@@ -131,7 +130,7 @@ const MaterialsPage = () => {
                       const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
                       
                       return (
-                        <div key={key} className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl">
+                        <div key={key} className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg">
                           <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-sm mb-2">
                             <Icon className="w-4 h-4 text-voltcraft-primary" />
                             {label}
@@ -147,17 +146,17 @@ const MaterialsPage = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recommended Print Settings</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl text-center">
+                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg text-center">
                       <Thermometer className="w-5 h-5 text-voltcraft-primary mx-auto mb-2" />
                       <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">Nozzle Temp</p>
                       <p className="text-xl font-semibold text-gray-900 dark:text-white">{selectedMaterial.nozzleTemp}°C</p>
                     </div>
-                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl text-center">
+                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg text-center">
                       <Flame className="w-5 h-5 text-voltcraft-primary mx-auto mb-2" />
                       <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">Bed Temp</p>
                       <p className="text-xl font-semibold text-gray-900 dark:text-white">{selectedMaterial.bedTemp}°C</p>
                     </div>
-                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-xl text-center">
+                    <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg text-center">
                       <Droplets className="w-5 h-5 text-voltcraft-primary mx-auto mb-2" />
                       <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">Print Speed</p>
                       <p className="text-xl font-semibold text-gray-900 dark:text-white">{selectedMaterial.printSpeed} mm/s</p>
@@ -199,7 +198,7 @@ const MaterialsPage = () => {
                 <div className="pt-4 border-t border-gray-200 dark:border-voltcraft-gray-800">
                   <Link
                     to="/quote"
-                    className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-xl font-semibold text-white hover:opacity-90 transition-opacity"
+                    className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-voltcraft-primary rounded-lg font-semibold text-white hover:opacity-90 transition-opacity"
                   >
                     Print with {selectedMaterial.shortName}
                     <ArrowRight className="w-5 h-5" />
@@ -212,7 +211,7 @@ const MaterialsPage = () => {
 
         {/* Comparison Table */}
         <div className="mt-16">
-          <h2 className="text-2xl font-display font-bold text-gray-900 dark:text-white mb-8 text-center">
+          <h2 className="text-2xl   font-bold   text-gray-900 dark:text-white mb-8 text-center">
             Material Comparison
           </h2>
           <div className="overflow-x-auto">

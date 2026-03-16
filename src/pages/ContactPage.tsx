@@ -102,9 +102,9 @@ const ContactPage = () => {
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-4xl font-display font-bold text-gray-900 dark:text-white"
+            className="text-3xl md:text-4xl  font-bold text-gray-900 dark:text-white"
           >
-            Get in <span className="gradient-text">Touch</span>
+            Get in <span className="text-voltcraft-primary">Touch</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -128,9 +128,9 @@ const ContactPage = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-4 p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800 hover:border-gray-300 dark:border-voltcraft-gray-700 transition-colors"
+                className="flex items-center gap-4 p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800 hover:border-gray-300 dark:border-voltcraft-gray-700 transition-colors"
               >
-                <div className="w-12 h-12 rounded-xl bg-voltcraft-primary/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-voltcraft-primary/20 flex items-center justify-center flex-shrink-0">
                   <item.icon className="w-6 h-6 text-voltcraft-primary" />
                 </div>
                 <div>
@@ -145,7 +145,7 @@ const ContactPage = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="p-6 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+              className="p-6 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
             >
               <div className="flex items-center gap-3 mb-4">
                 <Clock className="w-5 h-5 text-voltcraft-primary" />
@@ -168,7 +168,7 @@ const ContactPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="lg:col-span-2"
           >
-            <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-2xl border border-gray-200 dark:border-voltcraft-gray-800">
+            <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800">
               {isSubmitted ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -178,7 +178,7 @@ const ContactPage = () => {
                   <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
                     <CheckCircle className="w-12 h-12 text-green-500" />
                   </div>
-                  <h3 className="text-2xl font-display font-bold text-gray-900 dark:text-white mb-2">
+                  <h3 className="text-2xl  font-bold text-gray-900 dark:text-white mb-2">
                     Message Sent!
                   </h3>
                   <p className="text-gray-600 dark:text-voltcraft-gray-400 mb-6">
@@ -262,7 +262,7 @@ const ContactPage = () => {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-xl font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-voltcraft-primary rounded-lg font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
                       {isSubmitting ? (
                         <>
@@ -286,8 +286,8 @@ const ContactPage = () => {
         {/* FAQs */}
         <div>
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-display font-bold text-gray-900 dark:text-white">
-              Frequently Asked <span className="gradient-text">Questions</span>
+            <h2 className="text-3xl  font-bold text-gray-900 dark:text-white">
+              Frequently Asked <span className="text-voltcraft-primary">Questions</span>
             </h2>
             <p className="mt-4 text-gray-600 dark:text-voltcraft-gray-400">
               Find answers to common questions about our services.
@@ -302,7 +302,7 @@ const ContactPage = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="p-6 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800"
+                className="p-6 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800"
               >
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{faq.question}</h3>
                 <p className="text-gray-600 dark:text-voltcraft-gray-400 text-sm">{faq.answer}</p>

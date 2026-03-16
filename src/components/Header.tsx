@@ -11,108 +11,114 @@ const Header = () => {
 
   const navLinks = [
     { path: '/', label: 'Home' },
-    { path: '/quote', label: 'Get Quote' },
+    { path: '/quote', label: 'Services' },
     { path: '/materials', label: 'Materials' },
-    { path: '/about', label: 'About' },
     { path: '/contact', label: 'Contact' },
   ]
 
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+    <header className="w-full relative z-50 pt-2 lg:pt-6 pb-2 px-4 lg:px-8 bg-transparent">
+      <div className="max-w-[1500px] mx-auto flex justify-between items-stretch gap-4 md:gap-8 h-20">
+        
+        {/* Left Nav Box - Enclosed in Brutalist Border */}
+        <div className="flex-1 flex justify-between items-center brutal-border border bg-white dark:bg-[#141414] px-6 lg:px-8 relative">
+          <Link to="/" className="flex items-center gap-3">
+            <img 
+              src={theme === 'light' ? '/media/logo-light.png' : '/media/logo-dark.png'}
+              alt="Voltcraft Logo" 
+              className="h-10 md:h-12 w-auto object-contain"
+              // Fallback text if the image fails to load
+              onError={(e) => { 
+                e.currentTarget.style.display = 'none'; 
+                e.currentTarget.nextElementSibling?.classList.remove('hidden'); 
+              }} 
+            />
+            <div className="hidden font-bold text-xl text-gray-900 dark:text-white items-center gap-2">
+              <span className="w-4 h-4 bg-voltcraft-primary inline-block rounded-sm"></span>
+              Voltcraft
+            </div>
+          </Link>
+
+          {/* Desktop Links */}
+          <nav className="hidden md:flex items-center gap-8 lg:gap-12">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
-                className={`relative px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`text-[15px] transition-colors ${
                   isActive(link.path)
-                    ? 'text-gray-900 dark:text-white'
-                    : 'text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    ? 'text-voltcraft-primary font-medium'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
                 }`}
               >
-                {isActive(link.path) && (
-                  <motion.div
-                    layoutId="activeNav"
-                    className="absolute inset-0 bg-voltcraft-primary/20 rounded-lg"
-                    transition={{ type: 'spring', duration: 0.5 }}
-                  />
-                )}
-                <span className="relative z-10">{link.label}</span>
+                {link.label}
               </Link>
             ))}
           </nav>
 
-                    {/* CTA Button */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* Mobile Toggles */}
+          <div className="md:hidden flex items-center gap-4">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-gray-100 dark:bg-voltcraft-gray-800 text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              aria-label="Toggle theme"
+              className="text-gray-600 dark:text-gray-300 transition-colors"
             >
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
-            <Link
-              to="/quote"
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-lg font-semibold text-white hover:opacity-90 transition-opacity glow-blue"
-            >
-              Get Instant Quote
-            </Link>
-          </div>
-
-                    <div className="flex w-full items-center justify-between md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="text-gray-600 dark:text-gray-300 transition-colors"
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              {theme === 'light' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
-            </button>
           </div>
+        </div>
+
+        {/* Right Action Box - Desktop Only */}
+        <div className="hidden md:flex items-center brutal-border border bg-white dark:bg-[#141414] group hover:border-voltcraft-primary transition-colors">
+          <button
+            onClick={toggleTheme}
+            className="px-6 h-full flex items-center justify-center brutal-border border-r text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          <Link
+            to="/quote"
+            className="px-8 h-full flex items-center justify-center text-gray-900 dark:text-white font-medium hover:text-voltcraft-primary transition-colors whitespace-nowrap"
+          >
+            Get Instant Quote
+          </Link>
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Nav Overlay */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass border-t border-gray-200 dark:border-white/10"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="md:hidden absolute top-24 left-4 right-4 z-40 brutal-border border bg-white dark:bg-[#141414] p-6 flex flex-col gap-4 shadow-xl"
           >
-            <nav className="flex flex-col p-4 gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-colors ${
-                    isActive(link.path)
-                      ? 'bg-voltcraft-primary/20 text-white'
-                      : 'text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+            {navLinks.map((link) => (
               <Link
-                to="/quote"
+                key={link.path}
+                to={link.path}
                 onClick={() => setIsMenuOpen(false)}
-                className="mt-2 px-4 py-3 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-lg font-semibold text-white text-center"
+                className="text-lg font-medium text-gray-900 dark:text-white py-2 brutal-border border-b border-opacity-50"
               >
-                Get Instant Quote
+                {link.label}
               </Link>
-            </nav>
+            ))}
+            <Link
+              to="/quote"
+              onClick={() => setIsMenuOpen(false)}
+              className="mt-4 px-6 py-4 bg-voltcraft-primary text-white text-center font-bold"
+            >
+              Get Instant Quote
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

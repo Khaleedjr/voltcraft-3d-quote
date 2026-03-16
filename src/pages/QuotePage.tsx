@@ -85,8 +85,8 @@ const QuotePage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 dark:text-white">
-            Get Your <span className="gradient-text">Instant Quote</span>
+          <h1 className="text-3xl md:text-4xl   font-bold   text-gray-900 dark:text-white">
+            Get Your <span className="text-voltcraft-primary">Instant Quote</span>
           </h1>
           <p className="mt-4 text-gray-600 dark:text-voltcraft-gray-400 max-w-2xl mx-auto">
             Upload your 3D model or enter dimensions manually to receive 
@@ -114,7 +114,7 @@ const QuotePage = () => {
                 }
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                   currentStep === step.key
-                    ? 'bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary text-white'
+                    ? 'bg-voltcraft-primary'
                     : activeAnalysis && (step.key === 'upload' || (step.key === 'configure') || (step.key === 'order' && quote))
                     ? 'bg-white dark:bg-voltcraft-dark text-gray-700 dark:text-voltcraft-gray-300 hover:bg-white dark:bg-voltcraft-dark/80'
                     : 'bg-gray-50 dark:bg-voltcraft-darker text-voltcraft-gray-600 cursor-not-allowed'
@@ -146,12 +146,12 @@ const QuotePage = () => {
                 {/* Left: Upload & Manual Input */}
                 <div className="space-y-6">
                   {/* Input Mode Tabs */}
-                  <div className="flex gap-2 p-1 bg-gray-50 dark:bg-voltcraft-darker rounded-xl">
+                  <div className="flex gap-2 p-1 bg-gray-50 dark:bg-voltcraft-darker rounded-lg">
                     <button
                       onClick={() => setInputMode('file')}
                       className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                         inputMode === 'file'
-                          ? 'bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary text-white'
+                          ? 'bg-voltcraft-primary text-white'
                           : 'text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:text-white'
                       }`}
                     >
@@ -162,7 +162,7 @@ const QuotePage = () => {
                       onClick={() => setInputMode('manual')}
                       className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                         inputMode === 'manual'
-                          ? 'bg-voltcraft-secondary text-voltcraft-darker'
+                          ? 'bg-voltcraft-primary text-white'
                           : 'text-gray-600 dark:text-voltcraft-gray-400 hover:text-gray-900 dark:text-white'
                       }`}
                     >
@@ -208,7 +208,7 @@ const QuotePage = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       onClick={() => setCurrentStep('configure')}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-xl font-semibold text-white hover:opacity-90 transition-opacity"
+                      className="w-full px-6 py-4 bg-voltcraft-primary rounded-lg font-semibold text-white hover:opacity-90 transition-opacity"
                     >
                       Continue to Configure →
                     </motion.button>
@@ -217,7 +217,7 @@ const QuotePage = () => {
 
                 {/* Right: 3D Preview */}
                 <div className="lg:sticky lg:top-24 lg:self-start w-full">
-                  <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 h-[400px] md:h-[500px] lg:h-[600px]">
+                  <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 h-[400px] md:h-[500px] lg:h-[600px]">
                     <ModelViewer 
                       file={inputMode === 'file' ? file : null}
                       dimensions={viewerDimensions}
@@ -244,7 +244,7 @@ const QuotePage = () => {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-start gap-3"
+                  className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-3"
                 >
                   <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                   <div>
@@ -264,7 +264,7 @@ const QuotePage = () => {
                   {/* Model info & 3D Preview */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Info card */}
-                    <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">
@@ -294,7 +294,7 @@ const QuotePage = () => {
                     </div>
 
                     {/* Mini 3D Preview */}
-                    <div className="h-64 md:h-80 rounded-xl overflow-hidden border border-gray-200 dark:border-white/10">
+                    <div className="h-64 md:h-80 rounded-lg overflow-hidden border border-gray-200 dark:border-white/10">
                       <ModelViewer 
                         file={inputMode === 'file' ? file : null}
                         dimensions={activeAnalysis.dimensions}
@@ -335,7 +335,7 @@ const QuotePage = () => {
                           exit={{ opacity: 0, height: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="p-6 bg-white dark:bg-voltcraft-dark rounded-xl border border-gray-200 dark:border-voltcraft-gray-800">
+                          <div className="p-6 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800">
                             <PrintSettingsForm
                               settings={settings}
                               onSettingsChange={setSettings}
@@ -366,7 +366,7 @@ const QuotePage = () => {
                           onClick={handleProceedToOrder}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-voltcraft-primary to-voltcraft-secondary rounded-xl font-semibold text-white hover:opacity-90 transition-opacity text-lg"
+                          className="w-full mt-6 px-6 py-4 bg-voltcraft-primary rounded-lg font-semibold text-white hover:opacity-90 transition-opacity text-lg"
                         >
                           Proceed to Order
                         </motion.button>
@@ -386,7 +386,7 @@ const QuotePage = () => {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto"
             >
-              <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-2xl border border-gray-200 dark:border-white/10">
+              <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
                 <OrderForm
                   fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions Entry'}
                   analysis={activeAnalysis}
