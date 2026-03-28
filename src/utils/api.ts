@@ -1,4 +1,17 @@
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || ''
+const getDefaultApiBaseUrl = (): string => {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:3001'
+  }
+
+  return ''
+}
+
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || getDefaultApiBaseUrl()
 const normalizedApiBaseUrl = rawApiBaseUrl.replace(/\/$/, '')
 
 export const buildApiUrl = (path: string): string => {
@@ -53,6 +66,10 @@ export const getApiErrorMessage = ({
   const responseLooksLikeHtml = rawText.trim().startsWith('<')
   if (responseLooksLikeHtml) {
     return 'The API returned HTML instead of JSON. Check VITE_API_BASE_URL and ensure the backend API is running.'
+  }
+
+  if (response.status === 404) {
+    return `API endpoint not found (404) at ${response.url}. Check VITE_API_BASE_URL and backend deployment routes.`
   }
 
   if (!response.ok) {
