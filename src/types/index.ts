@@ -13,8 +13,8 @@ export interface Material {
     printability: number // 1-5
   }
   printSpeed: number // mm/s base speed
-  bedTemp: number // Â°C
-  nozzleTemp: number // Â°C
+  bedTemp: number // °C
+  nozzleTemp: number // °C
   suitable: string[]
   image?: string
 }
@@ -36,7 +36,7 @@ export interface QuoteResult {
 }
 
 export interface FileAnalysis {
-  volume: number // cmÂ³
+  volume: number // cm³
   dimensions: {
     x: number
     y: number
@@ -64,5 +64,10 @@ export interface CustomerInfo {
   email: string
   phone: string
   address?: string
+  city?: string
+  state?: string
+  country?: string
+  postalCode?: string
   notes?: string
 }
+

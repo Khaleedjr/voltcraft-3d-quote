@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
-import { Clock, Scale, Banknote, Package, Ruler, Layers, Sparkles, MessageCircle } from 'lucide-react'
+import { buildApiUrl } from '../utils/api'
+import { Clock, Scale, Banknote, Package, Ruler, Layers, Sparkles, MessageCircle, Mail } from 'lucide-react'
 
 interface QuoteSummaryProps {
   fileName: string
@@ -13,6 +15,11 @@ interface QuoteSummaryProps {
 }
 
 const QuoteSummary = ({ fileName, uploadedFile, analysis, material, settings, quote }: QuoteSummaryProps) => {
+  const [estimateEmail, setEstimateEmail] = useState('')
+  const [isSendingEstimate, setIsSendingEstimate] = useState(false)
+  const [estimateEmailError, setEstimateEmailError] = useState('')
+  const [estimateEmailSuccess, setEstimateEmailSuccess] = useState('')
+
   const handleWhatsAppQuote = async () => {
     const phoneNumber = '2349036225266'
     const message = `
@@ -59,6 +66,57 @@ Please confirm next steps. Thank you.
 
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
+  }
+
+  const handleEstimateEmail = async () => {
+    const normalizedEmail = estimateEmail.trim().toLowerCase()
+
+    setEstimateEmailError('')
+    setEstimateEmailSuccess('')
+
+    if (!normalizedEmail) {
+      setEstimateEmailError('Please enter an email address.')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setEstimateEmailError('Please enter a valid email address.')
+      return
+    }
+
+    setIsSendingEstimate(true)
+
+    try {
+      const payload = new FormData()
+      payload.append('recipientEmail', normalizedEmail)
+      payload.append('fileName', fileName)
+      payload.append('materialName', material.shortName)
+      payload.append('settings', JSON.stringify(settings))
+      payload.append('analysis', JSON.stringify(analysis))
+      payload.append('quote', JSON.stringify(quote))
+
+      if (uploadedFile) {
+        payload.append('modelFile', uploadedFile, uploadedFile.name)
+      }
+
+      const response = await fetch(buildApiUrl('/api/send-estimate'), {
+        method: 'POST',
+        body: payload
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'Could not send estimate email at the moment.')
+      }
+
+      setEstimateEmailSuccess('Estimate sent successfully. Please check your inbox.')
+    } catch (error) {
+      const fallbackMessage = 'Could not send estimate email at the moment.'
+      setEstimateEmailError(error instanceof Error ? error.message : fallbackMessage)
+    } finally {
+      setIsSendingEstimate(false)
+    }
   }
 
   return (
@@ -231,6 +289,40 @@ Please confirm next steps. Thank you.
         <MessageCircle className="w-5 h-5" />
         Send Quote via WhatsApp
       </button>
+
+      <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-voltcraft-gray-800 space-y-3">
+        <p className="text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300">
+          Prefer email? Send this estimate to your inbox.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="email"
+            value={estimateEmail}
+            onChange={(event) => setEstimateEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="flex-1 px-4 py-3 bg-gray-50 dark:bg-voltcraft-darker border border-gray-300 dark:border-voltcraft-gray-700 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-voltcraft-primary"
+          />
+
+          <button
+            type="button"
+            onClick={handleEstimateEmail}
+            disabled={isSendingEstimate}
+            className="px-4 py-3 rounded-lg bg-voltcraft-primary text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <Mail className="w-4 h-4" />
+            {isSendingEstimate ? 'Sending...' : 'Email Estimate'}
+          </button>
+        </div>
+
+        {estimateEmailError && (
+          <p className="text-red-500 text-xs">{estimateEmailError}</p>
+        )}
+
+        {estimateEmailSuccess && (
+          <p className="text-green-600 dark:text-green-400 text-xs">{estimateEmailSuccess}</p>
+        )}
+      </div>
 
       {uploadedFile && (
         <p className="text-gray-500 dark:text-voltcraft-gray-500 text-xs text-center">

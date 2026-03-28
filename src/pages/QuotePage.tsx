@@ -6,11 +6,11 @@ import ModelViewer from '../components/ModelViewer'
 import MaterialSelector from '../components/MaterialSelector'
 import PrintSettingsForm from '../components/PrintSettingsForm'
 import QuoteSummary from '../components/QuoteSummary'
-import OrderForm from '../components/OrderForm'
+import CheckoutForm from '../components/CheckoutForm'
 import { Material, PrintSettings, FileAnalysis, QuoteResult } from '../types'
 import { getDefaultMaterial } from '../data/materials'
 import { calculateQuote, validateDimensions, BUILD_VOLUME } from '../utils/quoteCalculator'
-import { AlertTriangle, ChevronDown, ChevronUp, Upload, Ruler } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronUp, Upload, Ruler, Maximize2 } from 'lucide-react'
 
 type Step = 'upload' | 'configure' | 'order'
 type InputMode = 'file' | 'manual'
@@ -33,20 +33,55 @@ const QuotePage = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [dimensionWarning, setDimensionWarning] = useState(false)
+  const [modelScale, setModelScale] = useState(1.0) // 1.0 = 100% of original size
 
   // Get the active analysis (from file or manual)
   const activeAnalysis = inputMode === 'file' ? analysis : manualAnalysis
 
-  // Recalculate quote when settings change
+  // Calculate max scale that fits printer
+  const getMaxScale = (baseAnalysis: FileAnalysis | null): number => {
+    if (!baseAnalysis) return 2.0
+    const { x, y, z } = baseAnalysis.dimensions
+    const maxByX = x > 0 ? BUILD_VOLUME.x / x : 2.0
+    const maxByY = y > 0 ? BUILD_VOLUME.y / y : 2.0
+    const maxByZ = z > 0 ? BUILD_VOLUME.z / z : 2.0
+    return Math.floor(Math.min(maxByX, maxByY, maxByZ) * 10) / 10 // Round down to 0.1
+  }
+
+  const maxModelScale = getMaxScale(activeAnalysis)
+
+  // Apply scale to analysis to create scaled version for calculations
+  const getScaledAnalysis = (baseAnalysis: FileAnalysis | null): FileAnalysis | null => {
+    if (!baseAnalysis) return null
+    
+    const scaledDimensions = {
+      x: baseAnalysis.dimensions.x * modelScale,
+      y: baseAnalysis.dimensions.y * modelScale,
+      z: baseAnalysis.dimensions.z * modelScale
+    }
+    
+    // Volume scales cubically
+    const scaledVolume = baseAnalysis.volume * (modelScale ** 3)
+    
+    return {
+      ...baseAnalysis,
+      dimensions: scaledDimensions,
+      volume: scaledVolume
+    }
+  }
+
+  const scaledAnalysis = getScaledAnalysis(activeAnalysis)
+
+  // Recalculate quote when settings or scale change
   useEffect(() => {
-    if (activeAnalysis && activeAnalysis.isValid) {
-      const newQuote = calculateQuote(activeAnalysis, material, settings)
+    if (scaledAnalysis && scaledAnalysis.isValid) {
+      const newQuote = calculateQuote(scaledAnalysis, material, settings)
       setQuote(newQuote)
-      setDimensionWarning(!validateDimensions(activeAnalysis.dimensions))
+      setDimensionWarning(!validateDimensions(scaledAnalysis.dimensions))
     } else {
       setQuote(null)
     }
-  }, [activeAnalysis, material, settings, inputMode])
+  }, [scaledAnalysis, material, settings, inputMode, modelScale])
 
   const handleFileAnalyzed = (uploadedFile: File, fileAnalysis: FileAnalysis) => {
     setFile(uploadedFile)
@@ -73,12 +108,11 @@ const QuotePage = () => {
     setManualAnalysis(null)
     setQuote(null)
     setCurrentStep('upload')
+    setModelScale(1.0)
   }
 
-  // Get dimensions for the 3D viewer
-  const viewerDimensions = inputMode === 'manual' && manualAnalysis 
-    ? manualAnalysis.dimensions 
-    : analysis?.dimensions
+  // Get scaled dimensions for the 3D viewer
+  const viewerDimensions = scaledAnalysis?.dimensions || activeAnalysis?.dimensions
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -250,9 +284,9 @@ const QuotePage = () => {
                   <div>
                     <p className="text-yellow-400 font-medium">Model exceeds build volume</p>
                     <p className="text-yellow-400/80 text-sm mt-1">
-                      Your model dimensions ({activeAnalysis.dimensions.x} × {activeAnalysis.dimensions.y} × {activeAnalysis.dimensions.z} mm) 
+                      Your model dimensions ({Math.round(scaledAnalysis?.dimensions.x || 0)} × {Math.round(scaledAnalysis?.dimensions.y || 0)} × {Math.round(scaledAnalysis?.dimensions.z || 0)} mm) 
                       exceed our printer's build volume ({BUILD_VOLUME.x} × {BUILD_VOLUME.y} × {BUILD_VOLUME.z} mm). 
-                      The model may need to be scaled down or printed in parts.
+                      Use the scale slider above to reduce the size.
                     </p>
                   </div>
                 </motion.div>
@@ -282,9 +316,9 @@ const QuotePage = () => {
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="p-2 bg-gray-50 dark:bg-voltcraft-darker rounded-lg">
+                        <div className="p-4 bg-gray-50 dark:bg-voltcraft-darker rounded-lg">
                           <span className="text-gray-500 dark:text-voltcraft-gray-500">Volume</span>
-                          <p className="text-gray-900 dark:text-white font-medium">{activeAnalysis.volume} cm³</p>
+                          <p className="text-gray-900 dark:text-white font-medium">{Math.round(scaledAnalysis?.volume || 0)} cm³</p>
                         </div>
                         <div className="p-2 bg-gray-50 dark:bg-voltcraft-darker rounded-lg">
                           <span className="text-gray-500 dark:text-voltcraft-gray-500">Type</span>
@@ -297,10 +331,52 @@ const QuotePage = () => {
                     <div className="h-64 md:h-80 rounded-lg overflow-hidden border border-gray-200 dark:border-white/10">
                       <ModelViewer 
                         file={inputMode === 'file' ? file : null}
-                        dimensions={activeAnalysis.dimensions}
+                        dimensions={scaledAnalysis?.dimensions}
                         className="h-full"
                       />
                     </div>
+                  </div>
+
+                  {/* Model Scale Slider */}
+                  <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 flex items-center gap-2">
+                        <Maximize2 className="w-4 h-4 text-voltcraft-primary" />
+                        Model Scale
+                      </h4>
+                      <span className="text-sm font-semibold text-voltcraft-primary">
+                        {Math.round(modelScale * 100)}% (max {Math.round(maxModelScale * 100)}%)
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min="0.25"
+                      max={maxModelScale}
+                      step="0.01"
+                      value={modelScale}
+                      onChange={(e) => setModelScale(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-200 dark:bg-voltcraft-gray-800 rounded-lg appearance-none cursor-pointer accent-voltcraft-primary"
+                    />
+
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <p className="text-gray-500 dark:text-voltcraft-gray-500 mb-1">Scaled Dimensions</p>
+                        <p className="text-gray-900 dark:text-white font-medium">
+                          {Math.round(scaledAnalysis?.dimensions.x || 0)} × {Math.round(scaledAnalysis?.dimensions.y || 0)} × {Math.round(scaledAnalysis?.dimensions.z || 0)} mm
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 dark:text-voltcraft-gray-500 mb-1">Max Build Volume</p>
+                        <p className="text-gray-900 dark:text-white font-medium">
+                          {BUILD_VOLUME.x} × {BUILD_VOLUME.y} × {BUILD_VOLUME.z} mm
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-voltcraft-gray-500 mt-3">
+                      Adjust the scale to fit your model within the printer's build volume. All costs will update automatically.
+                    </p>
                   </div>
 
                   {/* Material Selector */}
@@ -351,12 +427,12 @@ const QuotePage = () => {
                 {/* Right Column - Quote */}
                 <div className="lg:col-span-1">
                   <div className="sticky top-24">
-                    {quote && (
+                    {quote && scaledAnalysis && (
                       <>
                         <QuoteSummary
                           fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions'}
                           uploadedFile={inputMode === 'file' ? file : null}
-                          analysis={activeAnalysis}
+                          analysis={scaledAnalysis}
                           material={material}
                           settings={settings}
                           quote={quote}
@@ -378,7 +454,7 @@ const QuotePage = () => {
             </motion.div>
           )}
 
-          {currentStep === 'order' && activeAnalysis && quote && (
+          {currentStep === 'order' && scaledAnalysis && quote && (
             <motion.div
               key="order"
               initial={{ opacity: 0, y: 20 }}
@@ -387,9 +463,10 @@ const QuotePage = () => {
               className="max-w-2xl mx-auto"
             >
               <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
-                <OrderForm
+                <CheckoutForm
                   fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions Entry'}
-                  analysis={activeAnalysis}
+                  uploadedFile={inputMode === 'file' ? file : null}
+                  analysis={scaledAnalysis}
                   material={material}
                   settings={settings}
                   quote={quote}
@@ -404,3 +481,4 @@ const QuotePage = () => {
 }
 
 export default QuotePage
+

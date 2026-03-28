@@ -10,6 +10,8 @@ A modern web application for Voltcraft's 3D printing quote and order system. Bui
 - **Customizable Print Settings**: Layer height, infill density, support structures
 - **Responsive Design**: Works on desktop and mobile devices
 - **Modern UI**: Sleek dark theme with smooth animations
+- **Email Delivery**: Sends uploaded model + order details to admin and estimate copy to customer
+- **Checkout + Payment**: Place orders with shipping details using Paystack or Solana Pay
 
 ## Tech Stack
 
@@ -19,6 +21,7 @@ A modern web application for Voltcraft's 3D printing quote and order system. Bui
 - **Icons**: Lucide React
 - **Build Tool**: Vite
 - **File Handling**: React Dropzone
+- **Checkout API**: Express + Nodemailer + Multer + Paystack + Solana Web3
 
 ## Getting Started
 
@@ -44,7 +47,69 @@ A modern web application for Voltcraft's 3D printing quote and order system. Bui
    npm run dev
    ```
 
-4. Open your browser and visit `http://localhost:3000`
+4. In another terminal, start the backend email API:
+   ```bash
+   npm run server
+   ```
+
+5. Open your browser and visit `http://localhost:3000`
+
+### Email Configuration
+
+Copy `.env.example` to `.env` and set your SMTP details:
+
+```bash
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+FROM_EMAIL=quotes@voltcraft.org.ng
+ADMIN_EMAIL=info@voltcraft.org.ng
+```
+
+Without SMTP configuration, quote submission and estimate email actions will fail.
+
+### Payment Configuration
+
+Set these env values to enable paid checkout:
+
+```bash
+PAYSTACK_SECRET_KEY=sk_live_or_test_key
+PAYSTACK_CALLBACK_URL=http://localhost:3000/quote?payment=paystack
+SOLANA_RECIPIENT_ADDRESS=YourSolanaWalletAddress
+SOLANA_NGN_PER_SOL=250000
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+```
+
+### Gmail Setup (Recommended)
+
+Use Gmail SMTP with an App Password (not your regular Gmail password):
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_gmail_address@gmail.com
+SMTP_PASS=your_16_char_gmail_app_password
+FROM_EMAIL=your_gmail_address@gmail.com
+ADMIN_EMAIL=info@voltcraft.org.ng
+```
+
+How to get the Gmail app password:
+
+1. Turn on 2-Step Verification in your Google account.
+2. Go to Google Account > Security > App passwords.
+3. Create an app password and use that value for SMTP_PASS.
+
+### Running Beyond Localhost
+
+To use email in production (not just local development):
+
+1. Deploy the backend API (`server/index.js`) to a Node host (Render, Railway, VPS, etc).
+2. Set all SMTP env vars on that host.
+3. Set `VITE_API_BASE_URL` in your frontend environment to your deployed API URL (for example, `https://api.yourdomain.com`).
+4. Rebuild/redeploy the frontend.
 
 ## Project Structure
 
@@ -77,6 +142,8 @@ voltcraft-3d/
 │   └── index.css
 ├── public/
 │   └── favicon.svg
+├── server/
+│   └── index.js         # API endpoints for email delivery
 ├── package.json
 ├── tailwind.config.js
 ├── tsconfig.json
@@ -148,3 +215,5 @@ This site can be deployed to any static hosting service:
 
 - Website: [voltcraft.org.ng](https://voltcraft.org.ng)
 - Email: info@voltcraft.org.ng
+
+

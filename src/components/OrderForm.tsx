@@ -2,17 +2,19 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { CustomerInfo, Material, PrintSettings, QuoteResult, FileAnalysis } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
+import { buildApiUrl } from '../utils/api'
 import { Send, User, Mail, Phone, MapPin, MessageSquare, CheckCircle, Loader2 } from 'lucide-react'
 
 interface OrderFormProps {
   fileName: string
+  uploadedFile?: File | null
   analysis: FileAnalysis
   material: Material
   settings: PrintSettings
   quote: QuoteResult
 }
 
-const OrderForm = ({ fileName, analysis, material, settings, quote }: OrderFormProps) => {
+const OrderForm = ({ fileName, uploadedFile, analysis, material, settings, quote }: OrderFormProps) => {
   const [formData, setFormData] = useState<CustomerInfo>({
     name: '',
     email: '',
@@ -22,6 +24,8 @@ const OrderForm = ({ fileName, analysis, material, settings, quote }: OrderFormP
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [referenceNumber, setReferenceNumber] = useState('')
   const [errors, setErrors] = useState<Partial<CustomerInfo>>({})
 
   const validateForm = (): boolean => {
@@ -51,22 +55,46 @@ const OrderForm = ({ fileName, analysis, material, settings, quote }: OrderFormP
     if (!validateForm()) return
     
     setIsSubmitting(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // In production, this would send to your backend
-    console.log('Order submitted:', {
-      customer: formData,
-      file: fileName,
-      analysis,
-      material: material.shortName,
-      settings,
-      quote
-    })
-    
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    setSubmitError(null)
+
+    try {
+      const payload = new FormData()
+
+      payload.append('name', formData.name)
+      payload.append('email', formData.email)
+      payload.append('phone', formData.phone)
+      payload.append('address', formData.address || '')
+      payload.append('notes', formData.notes || '')
+      payload.append('fileName', fileName)
+      payload.append('materialName', material.shortName)
+      payload.append('color', settings.color)
+      payload.append('analysis', JSON.stringify(analysis))
+      payload.append('settings', JSON.stringify(settings))
+      payload.append('quote', JSON.stringify(quote))
+
+      if (uploadedFile) {
+        payload.append('modelFile', uploadedFile, uploadedFile.name)
+      }
+
+      const response = await fetch(buildApiUrl('/api/quote-request'), {
+        method: 'POST',
+        body: payload
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'Unable to submit your quote request right now.')
+      }
+
+      setReferenceNumber(result.referenceNumber || `VC-${Date.now().toString(36).toUpperCase()}`)
+      setIsSubmitted(true)
+    } catch (error) {
+      const fallbackMessage = 'Unable to submit your quote request right now. Please try again.'
+      setSubmitError(error instanceof Error ? error.message : fallbackMessage)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const updateField = (field: keyof CustomerInfo, value: string) => {
@@ -90,13 +118,13 @@ const OrderForm = ({ fileName, analysis, material, settings, quote }: OrderFormP
           Quote Request Submitted!
         </h3>
         <p className="text-gray-600 dark:text-voltcraft-gray-400 mb-6 max-w-md mx-auto">
-          Thank you for your interest. We'll review your request and get back to you 
-          within 24 hours with a final quote and payment details.
+          Thank you for your interest. Your file and request details have been emailed to our team,
+          and your estimate has also been sent to your inbox.
         </p>
         <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg inline-block">
           <p className="text-sm text-gray-600 dark:text-voltcraft-gray-400">Reference Number</p>
           <p className="text-xl  text-voltcraft-primary font-semibold">
-            VC-{Date.now().toString(36).toUpperCase()}
+            {referenceNumber || `VC-${Date.now().toString(36).toUpperCase()}`}
           </p>
         </div>
       </motion.div>
@@ -251,6 +279,10 @@ const OrderForm = ({ fileName, analysis, material, settings, quote }: OrderFormP
           )}
         </motion.button>
       </div>
+
+      {submitError && (
+        <p className="text-red-500 text-sm text-center">{submitError}</p>
+      )}
 
       <p className="text-gray-500 dark:text-voltcraft-gray-500 text-xs text-center">
         By submitting this form, you agree to our terms of service. We'll contact you 
