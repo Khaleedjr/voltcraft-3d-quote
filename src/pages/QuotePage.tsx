@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import FileUpload from '../components/FileUpload'
 import ManualDimensions from '../components/ManualDimensions'
-import ModelViewer from '../components/ModelViewer'
 import MaterialSelector from '../components/MaterialSelector'
 import PrintSettingsForm from '../components/PrintSettingsForm'
 import QuoteSummary from '../components/QuoteSummary'
-import CheckoutForm from '../components/CheckoutForm'
 import { Material, PrintSettings, FileAnalysis, QuoteResult } from '../types'
 import { getDefaultMaterial } from '../data/materials'
 import { calculateQuote, validateDimensions, BUILD_VOLUME } from '../utils/quoteCalculator'
 import { AlertTriangle, ChevronDown, ChevronUp, Upload, Ruler, Maximize2 } from 'lucide-react'
+
+const ModelViewer = lazy(() => import('../components/ModelViewer'))
+const CheckoutForm = lazy(() => import('../components/CheckoutForm'))
 
 type Step = 'upload' | 'configure' | 'order'
 type InputMode = 'file' | 'manual'
@@ -329,11 +330,19 @@ const QuotePage = () => {
 
                     {/* Mini 3D Preview */}
                     <div className="h-64 md:h-80 rounded-lg overflow-hidden border border-gray-200 dark:border-white/10">
-                      <ModelViewer 
-                        file={inputMode === 'file' ? file : null}
-                        dimensions={scaledAnalysis?.dimensions}
-                        className="h-full"
-                      />
+                      <Suspense
+                        fallback={
+                          <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-voltcraft-gray-500">
+                            Loading 3D preview...
+                          </div>
+                        }
+                      >
+                        <ModelViewer 
+                          file={inputMode === 'file' ? file : null}
+                          dimensions={scaledAnalysis?.dimensions}
+                          className="h-full"
+                        />
+                      </Suspense>
                     </div>
                   </div>
 
@@ -463,14 +472,22 @@ const QuotePage = () => {
               className="max-w-2xl mx-auto"
             >
               <div className="p-6 md:p-8 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
-                <CheckoutForm
-                  fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions Entry'}
-                  uploadedFile={inputMode === 'file' ? file : null}
-                  analysis={scaledAnalysis}
-                  material={material}
-                  settings={settings}
-                  quote={quote}
-                />
+                <Suspense
+                  fallback={
+                    <div className="py-12 text-center text-sm text-gray-500 dark:text-voltcraft-gray-500">
+                      Loading checkout...
+                    </div>
+                  }
+                >
+                  <CheckoutForm
+                    fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions Entry'}
+                    uploadedFile={inputMode === 'file' ? file : null}
+                    analysis={scaledAnalysis}
+                    material={material}
+                    settings={settings}
+                    quote={quote}
+                  />
+                </Suspense>
               </div>
             </motion.div>
           )}
