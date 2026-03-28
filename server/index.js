@@ -4,7 +4,7 @@ import multer from 'multer'
 import nodemailer from 'nodemailer'
 import dotenv from 'dotenv'
 import { randomUUID } from 'crypto'
-import { setDefaultResultOrder } from 'node:dns'
+import { lookup, setDefaultResultOrder } from 'node:dns'
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { FREE_DELIVERY_THRESHOLD_NGN, getShippingZoneById } from './shippingRates.js'
 
@@ -99,27 +99,17 @@ const getTransporter = () => {
     throw new Error('SMTP configuration is incomplete. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.')
   }
 
-  const isGmailHost = /(^|\.)gmail\.com$/i.test(host)
-
-  if (isGmailHost) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      family: 4,
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
-      auth: {
-        user,
-        pass
-      }
-    })
-  }
-
   return nodemailer.createTransport({
     host,
     port: smtpPort,
     secure,
     family: 4,
+    lookup: (hostname, options, callback) => {
+      lookup(hostname, { ...options, family: 4, all: false }, callback)
+    },
+    tls: {
+      servername: host
+    },
     connectionTimeout: 15000,
     greetingTimeout: 10000,
     socketTimeout: 20000,
