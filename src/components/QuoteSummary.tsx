@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
-import { buildApiUrl } from '../utils/api'
+import { buildApiUrl, getApiErrorMessage, parseApiResponse } from '../utils/api'
 import { Clock, Scale, Banknote, Package, Ruler, Layers, Sparkles, MessageCircle, Mail } from 'lucide-react'
 
 interface QuoteSummaryProps {
@@ -104,10 +104,19 @@ Please confirm next steps. Thank you.
         body: payload
       })
 
-      const result = await response.json()
+      const { data, rawText } = await parseApiResponse(response)
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Could not send estimate email at the moment.')
+        throw new Error(getApiErrorMessage({
+          response,
+          data,
+          rawText,
+          fallback: 'Could not send estimate email at the moment.'
+        }))
+      }
+
+      if (!data) {
+        throw new Error('Server returned an invalid response. Check API configuration and try again.')
       }
 
       setEstimateEmailSuccess('Estimate sent successfully. Please check your inbox.')

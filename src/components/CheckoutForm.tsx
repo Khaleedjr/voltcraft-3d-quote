@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CustomerInfo, FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
-import { buildApiUrl } from '../utils/api'
+import { buildApiUrl, getApiErrorMessage, parseApiResponse } from '../utils/api'
 import { FREE_DELIVERY_THRESHOLD_NGN, SHIPPING_ZONES, getShippingZoneById } from '../data/shippingRates'
 import { CheckCircle, CreditCard, Loader2, MapPin, Truck, Wallet } from 'lucide-react'
 
@@ -88,14 +88,23 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
           body: JSON.stringify({ reference: paymentReference.reference })
         })
 
-        const result = await response.json()
+        const { data, rawText } = await parseApiResponse(response)
 
         if (!response.ok) {
-          throw new Error(result?.error || 'Unable to verify Paystack payment right now.')
+          throw new Error(getApiErrorMessage({
+            response,
+            data,
+            rawText,
+            fallback: 'Unable to verify Paystack payment right now.'
+          }))
+        }
+
+        if (!data) {
+          throw new Error('Server returned an invalid response. Check API configuration and try again.')
         }
 
         setPaymentSuccess({
-          referenceNumber: result.referenceNumber,
+          referenceNumber: String(data.referenceNumber || ''),
           paymentMethod: 'Paystack'
         })
 
@@ -180,17 +189,28 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         body: payload
       })
 
-      const result = await response.json()
+      const { data, rawText } = await parseApiResponse(response)
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Unable to initialize Paystack payment right now.')
+        throw new Error(getApiErrorMessage({
+          response,
+          data,
+          rawText,
+          fallback: 'Unable to initialize Paystack payment right now.'
+        }))
       }
 
-      if (!result.authorizationUrl) {
+      if (!data) {
+        throw new Error('Server returned an invalid response. Check API configuration and try again.')
+      }
+
+      const authorizationUrl = data.authorizationUrl
+
+      if (typeof authorizationUrl !== 'string' || !authorizationUrl) {
         throw new Error('No Paystack authorization URL returned.')
       }
 
-      window.location.href = result.authorizationUrl
+      window.location.href = authorizationUrl
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to initialize Paystack payment right now.')
       setIsPaystackLoading(false)
@@ -211,18 +231,37 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         body: payload
       })
 
-      const result = await response.json()
+      const { data, rawText } = await parseApiResponse(response)
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Unable to create Solana payment invoice right now.')
+        throw new Error(getApiErrorMessage({
+          response,
+          data,
+          rawText,
+          fallback: 'Unable to create Solana payment invoice right now.'
+        }))
+      }
+
+      if (!data) {
+        throw new Error('Server returned an invalid response. Check API configuration and try again.')
+      }
+
+      const reference = data.reference
+      const paymentUrl = data.paymentUrl
+      const qrUrl = data.qrUrl
+      const amountSol = Number(data.amountSol)
+      const solToNgnRate = Number(data.solToNgnRate)
+
+      if (typeof reference !== 'string' || typeof paymentUrl !== 'string' || typeof qrUrl !== 'string') {
+        throw new Error('Incomplete Solana invoice response from server.')
       }
 
       setSolanaInvoice({
-        reference: result.reference,
-        paymentUrl: result.paymentUrl,
-        qrUrl: result.qrUrl,
-        amountSol: result.amountSol,
-        solToNgnRate: result.solToNgnRate
+        reference,
+        paymentUrl,
+        qrUrl,
+        amountSol,
+        solToNgnRate
       })
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to create Solana payment invoice right now.')
@@ -244,18 +283,27 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         body: JSON.stringify({ reference: solanaInvoice.reference })
       })
 
-      const result = await response.json()
+      const { data, rawText } = await parseApiResponse(response)
 
       if (!response.ok) {
-        throw new Error(result?.error || 'Unable to verify Solana payment right now.')
+        throw new Error(getApiErrorMessage({
+          response,
+          data,
+          rawText,
+          fallback: 'Unable to verify Solana payment right now.'
+        }))
       }
 
-      if (!result.paid) {
+      if (!data) {
+        throw new Error('Server returned an invalid response. Check API configuration and try again.')
+      }
+
+      if (!data.paid) {
         throw new Error('Payment not found yet. Wait a few seconds and verify again.')
       }
 
       setPaymentSuccess({
-        referenceNumber: result.referenceNumber,
+        referenceNumber: String(data.referenceNumber || ''),
         paymentMethod: 'Solana Pay'
       })
     } catch (error) {
