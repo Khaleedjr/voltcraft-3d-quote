@@ -64,8 +64,18 @@ Please confirm next steps. Thank you.
       }
     }
 
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    const encodedMessage = encodeURIComponent(message)
+    const waMobileUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
+    const waWebUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    const targetUrl = isMobile ? waMobileUrl : waWebUrl
+
+    const openedWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
+
+    // Fallback for aggressive popup blockers.
+    if (!openedWindow) {
+      window.location.href = targetUrl
+    }
   }
 
   const handleEstimateEmail = async () => {
