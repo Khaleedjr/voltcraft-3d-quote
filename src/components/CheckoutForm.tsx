@@ -297,7 +297,7 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reference: solanaInvoice.reference })
-      }, 30000)
+      }, 90000)
 
       const { data, rawText } = await parseApiResponse(response)
 
@@ -324,7 +324,7 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
       })
     } catch (error) {
       if (isAbortTimeoutError(error)) {
-        setSubmitError('Verification timed out. Please try again in a few seconds.')
+        setSubmitError('Verification is taking longer than expected. Wait a bit and click verify again.')
         return
       }
 

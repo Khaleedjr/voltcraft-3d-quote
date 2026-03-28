@@ -68,6 +68,22 @@ const parseJsonSafely = (value, fallback = {}) => {
   }
 }
 
+const withTimeout = async (promise, timeoutMs, timeoutMessage) => {
+  let timeoutId
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage || 'Operation timed out.'))
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 const getTransporter = () => {
   const host = process.env.SMTP_HOST
   const smtpPort = Number(process.env.SMTP_PORT || 587)
@@ -682,13 +698,40 @@ app.post('/api/payments/solana/verify', async (req, res) => {
     const connection = new Connection(rpcUrl, 'confirmed')
     const referenceKey = new PublicKey(reference)
 
-    const signatures = await connection.getSignaturesForAddress(referenceKey, { limit: 20 })
+    const signatures = await withTimeout(
+      connection.getSignaturesForAddress(referenceKey, { limit: 8 }),
+      12000,
+      'Solana network timeout while checking signatures.'
+    )
 
-    for (const signatureInfo of signatures) {
-      const transaction = await connection.getParsedTransaction(signatureInfo.signature, {
-        maxSupportedTransactionVersion: 0,
-        commitment: 'confirmed'
+    if (!Array.isArray(signatures) || signatures.length === 0) {
+      return res.json({ paid: false, message: 'Payment not found yet. Please wait and verify again.' })
+    }
+
+    const transactionChecks = await Promise.allSettled(
+      signatures.map(async (signatureInfo) => {
+        const transaction = await withTimeout(
+          connection.getParsedTransaction(signatureInfo.signature, {
+            maxSupportedTransactionVersion: 0,
+            commitment: 'confirmed'
+          }),
+          10000,
+          'Solana transaction lookup timed out.'
+        )
+
+        return {
+          signature: signatureInfo.signature,
+          transaction
+        }
       })
+    )
+
+    for (const checkResult of transactionChecks) {
+      if (checkResult.status !== 'fulfilled') {
+        continue
+      }
+
+      const { signature, transaction } = checkResult.value
 
       if (!transaction || transaction.meta?.err) {
         continue
@@ -698,7 +741,7 @@ app.post('/api/payments/solana/verify', async (req, res) => {
         const result = await finalizePaidOrder({
           reference,
           paymentMethod: 'Solana Pay',
-          paymentTransactionId: signatureInfo.signature
+          paymentTransactionId: signature
         })
 
         return res.json(result)
