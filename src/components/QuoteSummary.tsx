@@ -65,10 +65,7 @@ Please confirm next steps. Thank you.
     }
 
     const encodedMessage = encodeURIComponent(message)
-    const waMobileUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
-    const waWebUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-    const targetUrl = isMobile ? waMobileUrl : waWebUrl
+    const targetUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
 
     const openedWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer')
 

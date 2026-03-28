@@ -79,6 +79,21 @@ const getTransporter = () => {
     throw new Error('SMTP configuration is incomplete. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.')
   }
 
+  const isGmailHost = /(^|\.)gmail\.com$/i.test(host)
+
+  if (isGmailHost) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
+      auth: {
+        user,
+        pass
+      }
+    })
+  }
+
   return nodemailer.createTransport({
     host,
     port: smtpPort,
