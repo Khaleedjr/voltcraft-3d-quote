@@ -78,3 +78,25 @@ export const getApiErrorMessage = ({
 
   return fallback
 }
+
+export const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 30000
+): Promise<Response> => {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal
+    })
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+export const isAbortTimeoutError = (error: unknown): boolean => {
+  return error instanceof DOMException && error.name === 'AbortError'
+}

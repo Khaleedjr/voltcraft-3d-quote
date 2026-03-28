@@ -83,6 +83,9 @@ const getTransporter = () => {
     host,
     port: smtpPort,
     secure,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
       user,
       pass

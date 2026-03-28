@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CustomerInfo, FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
-import { buildApiUrl, getApiErrorMessage, parseApiResponse } from '../utils/api'
+import { buildApiUrl, fetchWithTimeout, getApiErrorMessage, isAbortTimeoutError, parseApiResponse } from '../utils/api'
 import { FREE_DELIVERY_THRESHOLD_NGN, SHIPPING_ZONES, getShippingZoneById } from '../data/shippingRates'
 import { CheckCircle, CreditCard, Loader2, MapPin, Truck, Wallet } from 'lucide-react'
 
@@ -82,11 +82,11 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         setIsPaystackLoading(true)
         setSubmitError(null)
 
-        const response = await fetch(buildApiUrl('/api/payments/paystack/verify'), {
+        const response = await fetchWithTimeout(buildApiUrl('/api/payments/paystack/verify'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reference: paymentReference.reference })
-        })
+        }, 30000)
 
         const { data, rawText } = await parseApiResponse(response)
 
@@ -111,6 +111,11 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         const cleanUrl = `${window.location.origin}${window.location.pathname}`
         window.history.replaceState({}, document.title, cleanUrl)
       } catch (error) {
+        if (isAbortTimeoutError(error)) {
+          setSubmitError('Verification timed out. Please try again in a few seconds.')
+          return
+        }
+
         setSubmitError(error instanceof Error ? error.message : 'Unable to verify Paystack payment right now.')
       } finally {
         setIsPaystackLoading(false)
@@ -184,10 +189,10 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
       const payload = createOrderPayload()
       payload.append('callbackUrl', `${window.location.origin}/quote?payment=paystack`)
 
-      const response = await fetch(buildApiUrl('/api/payments/paystack/initialize'), {
+      const response = await fetchWithTimeout(buildApiUrl('/api/payments/paystack/initialize'), {
         method: 'POST',
         body: payload
-      })
+      }, 30000)
 
       const { data, rawText } = await parseApiResponse(response)
 
@@ -212,6 +217,12 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
 
       window.location.href = authorizationUrl
     } catch (error) {
+      if (isAbortTimeoutError(error)) {
+        setSubmitError('Payment initialization timed out. Please try again.')
+        setIsPaystackLoading(false)
+        return
+      }
+
       setSubmitError(error instanceof Error ? error.message : 'Unable to initialize Paystack payment right now.')
       setIsPaystackLoading(false)
     }
@@ -226,10 +237,10 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
 
       const payload = createOrderPayload()
 
-      const response = await fetch(buildApiUrl('/api/payments/solana/create'), {
+      const response = await fetchWithTimeout(buildApiUrl('/api/payments/solana/create'), {
         method: 'POST',
         body: payload
-      })
+      }, 30000)
 
       const { data, rawText } = await parseApiResponse(response)
 
@@ -264,6 +275,11 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         solToNgnRate
       })
     } catch (error) {
+      if (isAbortTimeoutError(error)) {
+        setSubmitError('Creating Solana invoice timed out. Please try again.')
+        return
+      }
+
       setSubmitError(error instanceof Error ? error.message : 'Unable to create Solana payment invoice right now.')
     } finally {
       setIsSolanaLoading(false)
@@ -277,11 +293,11 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
       setIsSolanaVerifying(true)
       setSubmitError(null)
 
-      const response = await fetch(buildApiUrl('/api/payments/solana/verify'), {
+      const response = await fetchWithTimeout(buildApiUrl('/api/payments/solana/verify'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reference: solanaInvoice.reference })
-      })
+      }, 30000)
 
       const { data, rawText } = await parseApiResponse(response)
 
@@ -307,6 +323,11 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
         paymentMethod: 'Solana Pay'
       })
     } catch (error) {
+      if (isAbortTimeoutError(error)) {
+        setSubmitError('Verification timed out. Please try again in a few seconds.')
+        return
+      }
+
       setSubmitError(error instanceof Error ? error.message : 'Unable to verify Solana payment right now.')
     } finally {
       setIsSolanaVerifying(false)

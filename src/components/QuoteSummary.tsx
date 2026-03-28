@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
-import { buildApiUrl, getApiErrorMessage, parseApiResponse } from '../utils/api'
+import { buildApiUrl, fetchWithTimeout, getApiErrorMessage, isAbortTimeoutError, parseApiResponse } from '../utils/api'
 import { Clock, Scale, Banknote, Package, Ruler, Layers, Sparkles, MessageCircle, Mail } from 'lucide-react'
 
 interface QuoteSummaryProps {
@@ -99,10 +99,10 @@ Please confirm next steps. Thank you.
         payload.append('modelFile', uploadedFile, uploadedFile.name)
       }
 
-      const response = await fetch(buildApiUrl('/api/send-estimate'), {
+      const response = await fetchWithTimeout(buildApiUrl('/api/send-estimate'), {
         method: 'POST',
         body: payload
-      })
+      }, 30000)
 
       const { data, rawText } = await parseApiResponse(response)
 
@@ -121,6 +121,11 @@ Please confirm next steps. Thank you.
 
       setEstimateEmailSuccess('Estimate sent successfully. Please check your inbox.')
     } catch (error) {
+      if (isAbortTimeoutError(error)) {
+        setEstimateEmailError('Request timed out. Please try again in a few seconds.')
+        return
+      }
+
       const fallbackMessage = 'Could not send estimate email at the moment.'
       setEstimateEmailError(error instanceof Error ? error.message : fallbackMessage)
     } finally {

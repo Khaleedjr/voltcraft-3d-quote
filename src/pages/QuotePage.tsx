@@ -169,11 +169,11 @@ const QuotePage = () => {
         </div>
 
         {/* Content */}
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           {currentStep === 'upload' && (
             <motion.div
               key="upload"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
@@ -207,11 +207,11 @@ const QuotePage = () => {
                   </div>
 
                   {/* File Upload */}
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence mode="wait" initial={false}>
                     {inputMode === 'file' && (
                       <motion.div
                         key="file-upload"
-                        initial={{ opacity: 0, x: -20 }}
+                        initial={false}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                       >
@@ -226,7 +226,7 @@ const QuotePage = () => {
                     {inputMode === 'manual' && (
                       <motion.div
                         key="manual-input"
-                        initial={{ opacity: 0, x: 20 }}
+                        initial={false}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                       >
@@ -270,7 +270,7 @@ const QuotePage = () => {
           {currentStep === 'configure' && activeAnalysis && (
             <motion.div
               key="configure"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
@@ -466,7 +466,7 @@ const QuotePage = () => {
           {currentStep === 'order' && scaledAnalysis && quote && (
             <motion.div
               key="order"
-              initial={{ opacity: 0, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               className="max-w-2xl mx-auto"
