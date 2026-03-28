@@ -84,6 +84,7 @@ const getTransporter = () => {
   if (isGmailHost) {
     return nodemailer.createTransport({
       service: 'gmail',
+      family: 4,
       connectionTimeout: 15000,
       greetingTimeout: 10000,
       socketTimeout: 20000,
@@ -98,6 +99,7 @@ const getTransporter = () => {
     host,
     port: smtpPort,
     secure,
+    family: 4,
     connectionTimeout: 15000,
     greetingTimeout: 10000,
     socketTimeout: 20000,
