@@ -4,10 +4,14 @@ import multer from 'multer'
 import nodemailer from 'nodemailer'
 import dotenv from 'dotenv'
 import { randomUUID } from 'crypto'
+import { setDefaultResultOrder } from 'node:dns'
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { FREE_DELIVERY_THRESHOLD_NGN, getShippingZoneById } from './shippingRates.js'
 
 dotenv.config()
+
+// Render may have partial IPv6 reachability; prefer IPv4 for outbound network calls.
+setDefaultResultOrder('ipv4first')
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
@@ -429,18 +433,29 @@ const finalizePaidOrder = async ({ reference, paymentMethod, paymentTransactionI
 
   const referenceNumber = pending.referenceNumber || `VC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 6).toUpperCase()}`
 
-  await sendOrderEmails({
-    order: pending.order,
-    referenceNumber,
-    paymentMethod,
-    paymentTransactionId
-  })
+  let emailStatus = 'sent'
+  let emailWarning
+
+  try {
+    await sendOrderEmails({
+      order: pending.order,
+      referenceNumber,
+      paymentMethod,
+      paymentTransactionId
+    })
+  } catch (error) {
+    emailStatus = 'failed'
+    emailWarning = error instanceof Error ? error.message : 'Unable to send confirmation emails.'
+    console.error(`[Email Failure][${reference}]`, emailWarning)
+  }
 
   const result = {
     paid: true,
     referenceNumber,
     paymentMethod,
-    paymentTransactionId
+    paymentTransactionId,
+    emailStatus,
+    emailWarning
   }
 
   pendingOrders.delete(reference)
