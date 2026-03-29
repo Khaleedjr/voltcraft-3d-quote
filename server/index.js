@@ -131,6 +131,71 @@ const getMailConfig = () => {
   return { from, adminRecipient }
 }
 
+const getBrevoConfig = () => {
+  const apiKey = process.env.BREVO_API_KEY?.trim()
+
+  if (!apiKey) {
+    return null
+  }
+
+  return { apiKey }
+}
+
+const toBrevoAttachments = (attachments = []) => {
+  return attachments.map((attachment) => ({
+    name: attachment.filename,
+    content: attachment.content.toString('base64')
+  }))
+}
+
+const sendEmailMessages = async (messages) => {
+  const brevoConfig = getBrevoConfig()
+
+  if (brevoConfig) {
+    await Promise.all(messages.map(async (message) => {
+      const payload = {
+        sender: { email: message.from },
+        to: [{ email: message.to }],
+        subject: message.subject,
+        htmlContent: message.html
+      }
+
+      if (Array.isArray(message.attachments) && message.attachments.length > 0) {
+        payload.attachment = toBrevoAttachments(message.attachments)
+      }
+
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'api-key': brevoConfig.apiKey
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Brevo API error (${response.status}): ${errorText || 'Failed to send email.'}`)
+      }
+    }))
+
+    return
+  }
+
+  const transporter = getTransporter()
+
+  await Promise.all(messages.map((message) => {
+    return transporter.sendMail({
+      from: message.from,
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      attachments: message.attachments
+    })
+  }))
+}
+
 const getPaystackConfig = () => {
   const secretKey = process.env.PAYSTACK_SECRET_KEY
 
@@ -337,7 +402,6 @@ const buildOrderFromRequest = (req) => {
 }
 
 const sendOrderEmails = async ({ order, referenceNumber, paymentMethod, paymentTransactionId }) => {
-  const transporter = getTransporter()
   const { from, adminRecipient } = getMailConfig()
 
   const adminHtml = `
@@ -392,21 +456,21 @@ const sendOrderEmails = async ({ order, referenceNumber, paymentMethod, paymentT
     </div>
   `
 
-  await Promise.all([
-    transporter.sendMail({
+  await sendEmailMessages([
+    {
       from,
       to: adminRecipient,
       subject: `Paid Order: ${order.fileName} (${referenceNumber})`,
       html: adminHtml,
       attachments: order.attachments
-    }),
-    transporter.sendMail({
+    },
+    {
       from,
       to: order.customer.email,
       subject: `Order Confirmed (${referenceNumber})`,
       html: customerHtml,
       attachments: order.attachments
-    })
+    }
   ])
 }
 
@@ -485,13 +549,12 @@ app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
   }
 
   try {
-    const transporter = getTransporter()
     const { from, adminRecipient } = getMailConfig()
     const attachments = buildAttachments(req.file)
     const referenceNumber = `VC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 6).toUpperCase()}`
 
-    await Promise.all([
-      transporter.sendMail({
+    await sendEmailMessages([
+      {
         from,
         to: recipientEmail,
         subject: `Your Voltcraft Quote Estimate (${referenceNumber})`,
@@ -508,8 +571,8 @@ app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
           shippingFee: 0,
           grandTotal: Number(quote.totalCost)
         })
-      }),
-      transporter.sendMail({
+      },
+      {
         from,
         to: adminRecipient,
         subject: `Estimate Sent: ${fileName} (${referenceNumber})`,
@@ -530,7 +593,7 @@ app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
             includeReference: false
           })}
         `
-      })
+      }
     ])
 
     return res.json({ ok: true, referenceNumber })
