@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import nodemailer from 'nodemailer'
+import AdmZip from 'adm-zip'
 import dotenv from 'dotenv'
 import { randomUUID } from 'crypto'
 import { lookup, setDefaultResultOrder } from 'node:dns'
@@ -142,23 +143,38 @@ const getBrevoConfig = () => {
 }
 
 const toBrevoAttachments = (attachments = []) => {
-  // Brevo rejects some engineering formats (e.g. STL/OBJ/3MF) as attachments.
   const brevoAllowedExtensions = new Set([
     'pdf', 'txt', 'csv', 'json', 'xml', 'zip',
     'jpg', 'jpeg', 'png', 'gif', 'webp',
     'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
   ])
 
+  const wrapUnsupportedFileAsZip = (attachment) => {
+    const originalName = String(attachment.filename || 'model-file')
+    const zipName = `${originalName.replace(/\.[^/.]+$/, '') || 'model-file'}.zip`
+    const archive = new AdmZip()
+    archive.addFile(originalName, Buffer.from(attachment.content))
+
+    return {
+      name: zipName,
+      content: archive.toBuffer().toString('base64')
+    }
+  }
+
   return attachments
-    .filter((attachment) => {
+    .map((attachment) => {
       const name = String(attachment.filename || '')
       const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : ''
-      return brevoAllowedExtensions.has(ext)
+      if (brevoAllowedExtensions.has(ext)) {
+        return {
+          name: attachment.filename,
+          content: attachment.content.toString('base64')
+        }
+      }
+
+      // Keep STL/OBJ/3MF meaningful by packaging them as a ZIP attachment.
+      return wrapUnsupportedFileAsZip(attachment)
     })
-    .map((attachment) => ({
-      name: attachment.filename,
-      content: attachment.content.toString('base64')
-    }))
 }
 
 const sendEmailMessages = async (messages) => {
