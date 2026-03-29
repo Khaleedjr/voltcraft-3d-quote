@@ -142,10 +142,23 @@ const getBrevoConfig = () => {
 }
 
 const toBrevoAttachments = (attachments = []) => {
-  return attachments.map((attachment) => ({
-    name: attachment.filename,
-    content: attachment.content.toString('base64')
-  }))
+  // Brevo rejects some engineering formats (e.g. STL/OBJ/3MF) as attachments.
+  const brevoAllowedExtensions = new Set([
+    'pdf', 'txt', 'csv', 'json', 'xml', 'zip',
+    'jpg', 'jpeg', 'png', 'gif', 'webp',
+    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
+  ])
+
+  return attachments
+    .filter((attachment) => {
+      const name = String(attachment.filename || '')
+      const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : ''
+      return brevoAllowedExtensions.has(ext)
+    })
+    .map((attachment) => ({
+      name: attachment.filename,
+      content: attachment.content.toString('base64')
+    }))
 }
 
 const sendEmailMessages = async (messages) => {
@@ -161,7 +174,10 @@ const sendEmailMessages = async (messages) => {
       }
 
       if (Array.isArray(message.attachments) && message.attachments.length > 0) {
-        payload.attachment = toBrevoAttachments(message.attachments)
+        const safeAttachments = toBrevoAttachments(message.attachments)
+        if (safeAttachments.length > 0) {
+          payload.attachment = safeAttachments
+        }
       }
 
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
