@@ -16,11 +16,27 @@ const CheckoutForm = lazy(() => import('../components/CheckoutForm'))
 type Step = 'upload' | 'configure' | 'order'
 type InputMode = 'file' | 'manual'
 
+interface FileQuoteBreakdownItem {
+  file: File
+  analysis: FileAnalysis
+  material: Material
+  quote: QuoteResult
+}
+
+interface FileConfig {
+  scale: number
+  material: Material
+}
+
 const QuotePage = () => {
   const [currentStep, setCurrentStep] = useState<Step>('upload')
   const [inputMode, setInputMode] = useState<InputMode>('file')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [analysis, setAnalysis] = useState<FileAnalysis | null>(null)
+  const [fileAnalyses, setFileAnalyses] = useState<Array<{ file: File; analysis: FileAnalysis }>>([])
+  const [fileConfigs, setFileConfigs] = useState<Record<number, FileConfig>>({})
+  const [fileQuoteBreakdown, setFileQuoteBreakdown] = useState<FileQuoteBreakdownItem[]>([])
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState(0)
   const [manualAnalysis, setManualAnalysis] = useState<FileAnalysis | null>(null)
   const [material, setMaterial] = useState<Material>(getDefaultMaterial())
   const [settings, setSettings] = useState<PrintSettings>({
@@ -36,7 +52,6 @@ const QuotePage = () => {
   const [dimensionWarning, setDimensionWarning] = useState(false)
   const [modelScale, setModelScale] = useState(1.0) // 1.0 = 100% of original size
 
-  // Get the active analysis (from file or manual)
   const activeAnalysis = inputMode === 'file' ? analysis : manualAnalysis
 
   // Calculate max scale that fits printer
@@ -49,20 +64,17 @@ const QuotePage = () => {
     return Math.floor(Math.min(maxByX, maxByY, maxByZ) * 10) / 10 // Round down to 0.1
   }
 
-  const maxModelScale = getMaxScale(activeAnalysis)
-
-  // Apply scale to analysis to create scaled version for calculations
-  const getScaledAnalysis = (baseAnalysis: FileAnalysis | null): FileAnalysis | null => {
+  const getScaledAnalysis = (baseAnalysis: FileAnalysis | null, scale: number): FileAnalysis | null => {
     if (!baseAnalysis) return null
     
     const scaledDimensions = {
-      x: baseAnalysis.dimensions.x * modelScale,
-      y: baseAnalysis.dimensions.y * modelScale,
-      z: baseAnalysis.dimensions.z * modelScale
+      x: baseAnalysis.dimensions.x * scale,
+      y: baseAnalysis.dimensions.y * scale,
+      z: baseAnalysis.dimensions.z * scale
     }
     
     // Volume scales cubically
-    const scaledVolume = baseAnalysis.volume * (modelScale ** 3)
+    const scaledVolume = baseAnalysis.volume * (scale ** 3)
     
     return {
       ...baseAnalysis,
@@ -71,22 +83,104 @@ const QuotePage = () => {
     }
   }
 
-  const scaledAnalysis = getScaledAnalysis(activeAnalysis)
+  const selectedFileAnalysis = inputMode === 'file' ? fileAnalyses[selectedPreviewIndex]?.analysis || null : null
+  const selectedFileScale = inputMode === 'file'
+    ? (fileConfigs[selectedPreviewIndex]?.scale ?? 1)
+    : modelScale
+
+  const maxModelScale = getMaxScale(inputMode === 'file' ? selectedFileAnalysis : activeAnalysis)
+
+  const selectedScaledAnalysis = inputMode === 'file'
+    ? getScaledAnalysis(selectedFileAnalysis, selectedFileScale)
+    : getScaledAnalysis(activeAnalysis, modelScale)
+
+  const scaledAnalysis = (() => {
+    if (inputMode === 'file' && fileAnalyses.length > 0) {
+      const scaledPerFile = fileAnalyses
+        .map((entry, index) => getScaledAnalysis(entry.analysis, fileConfigs[index]?.scale ?? 1))
+        .filter((entry): entry is FileAnalysis => Boolean(entry))
+
+      if (scaledPerFile.length === 0) {
+        return null
+      }
+
+      return {
+        volume: scaledPerFile.reduce((sum, entry) => sum + entry.volume, 0),
+        dimensions: {
+          x: Math.max(...scaledPerFile.map((entry) => entry.dimensions.x)),
+          y: Math.max(...scaledPerFile.map((entry) => entry.dimensions.y)),
+          z: Math.max(...scaledPerFile.map((entry) => entry.dimensions.z))
+        },
+        triangleCount: scaledPerFile.reduce((sum, entry) => sum + entry.triangleCount, 0),
+        isValid: true,
+        errors: []
+      }
+    }
+
+    return getScaledAnalysis(activeAnalysis, modelScale)
+  })()
 
   // Recalculate quote when settings or scale change
   useEffect(() => {
     if (scaledAnalysis && scaledAnalysis.isValid) {
-      const newQuote = calculateQuote(scaledAnalysis, material, settings)
-      setQuote(newQuote)
-      setDimensionWarning(!validateDimensions(scaledAnalysis.dimensions))
-    } else {
-      setQuote(null)
-    }
-  }, [scaledAnalysis, material, settings, inputMode, modelScale])
+      if (inputMode === 'file' && fileAnalyses.length > 0) {
+        const breakdown = fileAnalyses.map(({ file, analysis: singleAnalysis }, index) => {
+          const fileConfig = fileConfigs[index] || { scale: 1, material }
+          const scaledSingleAnalysis = getScaledAnalysis(singleAnalysis, fileConfig.scale) as FileAnalysis
+          const singleQuote = calculateQuote(scaledSingleAnalysis, fileConfig.material, settings)
+          return {
+            file,
+            analysis: scaledSingleAnalysis,
+            material: fileConfig.material,
+            quote: singleQuote
+          }
+        })
 
-  const handleFileAnalyzed = (uploadedFile: File, fileAnalysis: FileAnalysis) => {
-    setFile(uploadedFile)
+        setFileQuoteBreakdown(breakdown)
+
+        const aggregatedQuote: QuoteResult = {
+          materialCost: breakdown.reduce((sum, item) => sum + item.quote.materialCost, 0),
+          printTime: breakdown.reduce((sum, item) => sum + item.quote.printTime, 0),
+          laborCost: breakdown.reduce((sum, item) => sum + item.quote.laborCost, 0),
+          totalCost: breakdown.reduce((sum, item) => sum + item.quote.totalCost, 0),
+          weight: Math.round(breakdown.reduce((sum, item) => sum + item.quote.weight, 0) * 10) / 10
+        }
+
+        setQuote(aggregatedQuote)
+        setDimensionWarning(
+          breakdown.some((entry) => !validateDimensions(entry.analysis.dimensions))
+        )
+      } else {
+        const newQuote = calculateQuote(scaledAnalysis, material, settings)
+        setFileQuoteBreakdown([])
+        setQuote(newQuote)
+        setDimensionWarning(!validateDimensions(scaledAnalysis.dimensions))
+      }
+    } else {
+      setFileQuoteBreakdown([])
+      setQuote(null)
+      setDimensionWarning(false)
+    }
+  }, [scaledAnalysis, material, settings, inputMode, modelScale, fileAnalyses, fileConfigs])
+
+  const handleFilesAnalyzed = (
+    uploadedFiles: File[],
+    fileAnalysis: FileAnalysis,
+    perFileAnalyses: Array<{ file: File; analysis: FileAnalysis }>
+  ) => {
+    setFiles(uploadedFiles)
     setAnalysis(fileAnalysis)
+    setFileAnalyses(perFileAnalyses)
+    setFileConfigs(
+      uploadedFiles.reduce<Record<number, FileConfig>>((acc, _file, index) => {
+        acc[index] = {
+          scale: 1,
+          material: getDefaultMaterial()
+        }
+        return acc
+      }, {})
+    )
+    setSelectedPreviewIndex(0)
     setInputMode('file')
     // Stay on upload step to show 3D preview first - user clicks to continue
   }
@@ -104,16 +198,25 @@ const QuotePage = () => {
   }
 
   const resetToUpload = () => {
-    setFile(null)
+    setFiles([])
     setAnalysis(null)
+    setFileAnalyses([])
+    setFileConfigs({})
+    setFileQuoteBreakdown([])
     setManualAnalysis(null)
     setQuote(null)
     setCurrentStep('upload')
     setModelScale(1.0)
+    setSelectedPreviewIndex(0)
   }
 
-  // Get scaled dimensions for the 3D viewer
-  const viewerDimensions = scaledAnalysis?.dimensions || activeAnalysis?.dimensions
+  const viewerDimensions = inputMode === 'file'
+    ? (selectedScaledAnalysis?.dimensions || selectedFileAnalysis?.dimensions)
+    : (scaledAnalysis?.dimensions || activeAnalysis?.dimensions)
+
+  const selectedMaterial = inputMode === 'file'
+    ? (fileConfigs[selectedPreviewIndex]?.material || material)
+    : material
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -216,7 +319,7 @@ const QuotePage = () => {
                         exit={{ opacity: 0, x: -20 }}
                       >
                         <FileUpload
-                          onFileAnalyzed={handleFileAnalyzed}
+                          onFilesAnalyzed={handleFilesAnalyzed}
                           isAnalyzing={isAnalyzing}
                           setIsAnalyzing={setIsAnalyzing}
                         />
@@ -254,13 +357,30 @@ const QuotePage = () => {
                 <div className="lg:sticky lg:top-24 lg:self-start w-full">
                   <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-white/10 h-[400px] md:h-[500px] lg:h-[600px]">
                     <ModelViewer 
-                      file={inputMode === 'file' ? file : null}
+                      file={inputMode === 'file' ? files[selectedPreviewIndex] ?? null : null}
                       dimensions={viewerDimensions}
                       className="h-full"
                     />
                   </div>
+                  {inputMode === 'file' && files.length > 1 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {files.map((previewFile, index) => (
+                        <button
+                          key={previewFile.name + index}
+                          onClick={() => setSelectedPreviewIndex(index)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            selectedPreviewIndex === index
+                              ? 'bg-voltcraft-primary text-white border-voltcraft-primary'
+                              : 'bg-white dark:bg-voltcraft-dark text-gray-700 dark:text-voltcraft-gray-300 border-gray-200 dark:border-white/10 hover:border-voltcraft-primary/50'
+                          }`}
+                        >
+                          {index + 1}. {previewFile.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-center text-gray-500 dark:text-voltcraft-gray-500 text-sm mt-3">
-                    {file ? '3D Model Preview' : inputMode === 'manual' && manualAnalysis ? 'Dimension Preview' : 'Preview will appear here'}
+                    {files.length > 0 ? '3D Model Preview (switch files using buttons above)' : inputMode === 'manual' && manualAnalysis ? 'Dimension Preview' : 'Preview will appear here'}
                   </p>
                 </div>
               </div>
@@ -285,9 +405,9 @@ const QuotePage = () => {
                   <div>
                     <p className="text-yellow-400 font-medium">Model exceeds build volume</p>
                     <p className="text-yellow-400/80 text-sm mt-1">
-                      Your model dimensions ({Math.round(scaledAnalysis?.dimensions.x || 0)} × {Math.round(scaledAnalysis?.dimensions.y || 0)} × {Math.round(scaledAnalysis?.dimensions.z || 0)} mm) 
-                      exceed our printer's build volume ({BUILD_VOLUME.x} × {BUILD_VOLUME.y} × {BUILD_VOLUME.z} mm). 
-                      Use the scale slider above to reduce the size.
+                      {inputMode === 'file' && files.length > 1
+                        ? 'One or more selected files currently exceed build volume. Switch file tabs and reduce the scale for each oversized file.'
+                        : `Your model dimensions (${Math.round(selectedScaledAnalysis?.dimensions.x || 0)} × ${Math.round(selectedScaledAnalysis?.dimensions.y || 0)} × ${Math.round(selectedScaledAnalysis?.dimensions.z || 0)} mm) exceed our printer's build volume (${BUILD_VOLUME.x} × ${BUILD_VOLUME.y} × ${BUILD_VOLUME.z} mm). Use the scale slider above to reduce the size.`}
                     </p>
                   </div>
                 </motion.div>
@@ -306,7 +426,9 @@ const QuotePage = () => {
                             {inputMode === 'file' ? 'Uploaded File' : 'Manual Dimensions'}
                           </p>
                           <p className="text-gray-900 dark:text-white font-medium">
-                            {inputMode === 'file' ? file?.name : `${activeAnalysis.dimensions.x} × ${activeAnalysis.dimensions.y} × ${activeAnalysis.dimensions.z} mm`}
+                            {inputMode === 'file'
+                              ? (files.length > 1 ? `${files.length} models uploaded` : files[0]?.name)
+                              : `${activeAnalysis.dimensions.x} × ${activeAnalysis.dimensions.y} × ${activeAnalysis.dimensions.z} mm`}
                           </p>
                         </div>
                         <button
@@ -338,23 +460,41 @@ const QuotePage = () => {
                         }
                       >
                         <ModelViewer 
-                          file={inputMode === 'file' ? file : null}
-                          dimensions={scaledAnalysis?.dimensions}
+                          file={inputMode === 'file' ? files[selectedPreviewIndex] ?? null : null}
+                          dimensions={viewerDimensions}
                           className="h-full"
                         />
                       </Suspense>
                     </div>
                   </div>
 
+                  {inputMode === 'file' && files.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {files.map((previewFile, index) => (
+                        <button
+                          key={`configure-${previewFile.name}-${index}`}
+                          onClick={() => setSelectedPreviewIndex(index)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            selectedPreviewIndex === index
+                              ? 'bg-voltcraft-primary text-white border-voltcraft-primary'
+                              : 'bg-white dark:bg-voltcraft-dark text-gray-700 dark:text-voltcraft-gray-300 border-gray-200 dark:border-white/10 hover:border-voltcraft-primary/50'
+                          }`}
+                        >
+                          {index + 1}. {previewFile.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Model Scale Slider */}
                   <div className="p-4 bg-white dark:bg-voltcraft-dark rounded-lg border border-gray-200 dark:border-white/10">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 flex items-center gap-2">
                         <Maximize2 className="w-4 h-4 text-voltcraft-primary" />
-                        Model Scale
+                        {inputMode === 'file' ? `Scale: ${files[selectedPreviewIndex]?.name || 'Selected file'}` : 'Model Scale'}
                       </h4>
                       <span className="text-sm font-semibold text-voltcraft-primary">
-                        {Math.round(modelScale * 100)}% (max {Math.round(maxModelScale * 100)}%)
+                        {Math.round(selectedFileScale * 100)}% (max {Math.round(maxModelScale * 100)}%)
                       </span>
                     </div>
 
@@ -363,8 +503,21 @@ const QuotePage = () => {
                       min="0.25"
                       max={maxModelScale}
                       step="0.01"
-                      value={modelScale}
-                      onChange={(e) => setModelScale(Number(e.target.value))}
+                      value={selectedFileScale}
+                      onChange={(e) => {
+                        const nextScale = Number(e.target.value)
+                        if (inputMode === 'file') {
+                          setFileConfigs((prev) => ({
+                            ...prev,
+                            [selectedPreviewIndex]: {
+                              scale: nextScale,
+                              material: prev[selectedPreviewIndex]?.material || material
+                            }
+                          }))
+                        } else {
+                          setModelScale(nextScale)
+                        }
+                      }}
                       className="w-full h-2 bg-gray-200 dark:bg-voltcraft-gray-800 rounded-lg appearance-none cursor-pointer accent-voltcraft-primary"
                     />
 
@@ -372,7 +525,7 @@ const QuotePage = () => {
                       <div>
                         <p className="text-gray-500 dark:text-voltcraft-gray-500 mb-1">Scaled Dimensions</p>
                         <p className="text-gray-900 dark:text-white font-medium">
-                          {Math.round(scaledAnalysis?.dimensions.x || 0)} × {Math.round(scaledAnalysis?.dimensions.y || 0)} × {Math.round(scaledAnalysis?.dimensions.z || 0)} mm
+                          {Math.round(viewerDimensions?.x || 0)} × {Math.round(viewerDimensions?.y || 0)} × {Math.round(viewerDimensions?.z || 0)} mm
                         </p>
                       </div>
                       <div>
@@ -390,9 +543,20 @@ const QuotePage = () => {
 
                   {/* Material Selector */}
                   <MaterialSelector
-                    selectedMaterial={material}
+                    selectedMaterial={selectedMaterial}
                     onSelectMaterial={(newMaterial) => {
-                      setMaterial(newMaterial)
+                      if (inputMode === 'file') {
+                        setFileConfigs((prev) => ({
+                          ...prev,
+                          [selectedPreviewIndex]: {
+                            scale: prev[selectedPreviewIndex]?.scale ?? 1,
+                            material: newMaterial
+                          }
+                        }))
+                      } else {
+                        setMaterial(newMaterial)
+                      }
+
                       if (!newMaterial.colors.includes(settings.color)) {
                         setSettings(prev => ({ ...prev, color: newMaterial.colors[0] || 'Black' }))
                       }
@@ -424,7 +588,7 @@ const QuotePage = () => {
                             <PrintSettingsForm
                               settings={settings}
                               onSettingsChange={setSettings}
-                              availableColors={material.colors}
+                              availableColors={selectedMaterial.colors}
                             />
                           </div>
                         </motion.div>
@@ -439,12 +603,22 @@ const QuotePage = () => {
                     {quote && scaledAnalysis && (
                       <>
                         <QuoteSummary
-                          fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions'}
-                          uploadedFile={inputMode === 'file' ? file : null}
+                          fileName={
+                            inputMode === 'file'
+                              ? (files.length > 1 ? `${files.length} models` : (files[0]?.name || 'model.stl'))
+                              : 'Manual Dimensions'
+                          }
+                          uploadedFiles={inputMode === 'file' ? files : []}
                           analysis={scaledAnalysis}
-                          material={material}
+                          material={selectedMaterial}
                           settings={settings}
                           quote={quote}
+                          fileBreakdown={fileQuoteBreakdown.map((item) => ({
+                            fileName: item.file.name,
+                            materialShortName: item.material.shortName,
+                            analysis: item.analysis,
+                            quote: item.quote
+                          }))}
                         />
                         
                         <motion.button
@@ -480,8 +654,12 @@ const QuotePage = () => {
                   }
                 >
                   <CheckoutForm
-                    fileName={inputMode === 'file' ? (file?.name || 'model.stl') : 'Manual Dimensions Entry'}
-                    uploadedFile={inputMode === 'file' ? file : null}
+                    fileName={
+                      inputMode === 'file'
+                        ? (files.length > 1 ? `${files.length} models` : (files[0]?.name || 'model.stl'))
+                        : 'Manual Dimensions Entry'
+                    }
+                    uploadedFiles={inputMode === 'file' ? files : []}
                     analysis={scaledAnalysis}
                     material={material}
                     settings={settings}

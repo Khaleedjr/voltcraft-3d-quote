@@ -22,6 +22,11 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 })
 
+const quoteUploadMiddleware = upload.fields([
+  { name: 'modelFile', maxCount: 1 },
+  { name: 'modelFiles', maxCount: 10 }
+])
+
 app.use(cors())
 app.use(express.json({ limit: '2mb' }))
 
@@ -297,18 +302,36 @@ const getLiveSolToNgnRate = async () => {
   }
 }
 
-const buildAttachments = (file) => {
-  if (!file) {
+const getUploadedFiles = (req) => {
+  const files = []
+
+  if (req.file) {
+    files.push(req.file)
+  }
+
+  if (Array.isArray(req.files)) {
+    files.push(...req.files)
+  } else if (req.files && typeof req.files === 'object') {
+    for (const value of Object.values(req.files)) {
+      if (Array.isArray(value)) {
+        files.push(...value)
+      }
+    }
+  }
+
+  return files
+}
+
+const buildAttachments = (files = []) => {
+  if (!Array.isArray(files) || files.length === 0) {
     return []
   }
 
-  return [
-    {
-      filename: file.originalname,
-      content: file.buffer,
-      contentType: file.mimetype
-    }
-  ]
+  return files.map((file) => ({
+    filename: file.originalname,
+    content: file.buffer,
+    contentType: file.mimetype
+  }))
 }
 
 const renderEstimateHtml = ({
@@ -429,7 +452,7 @@ const buildOrderFromRequest = (req) => {
       shippingZone,
       shippingZoneLabel: shipping.label
     },
-    attachments: buildAttachments(req.file)
+    attachments: buildAttachments(getUploadedFiles(req))
   }
 }
 
@@ -570,7 +593,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
+app.post('/api/send-estimate', quoteUploadMiddleware, async (req, res) => {
   const { recipientEmail, fileName, materialName } = req.body || {}
   const settings = parseJsonSafely(req.body.settings)
   const analysis = parseJsonSafely(req.body.analysis)
@@ -582,7 +605,7 @@ app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
 
   try {
     const { from, adminRecipient } = getMailConfig()
-    const attachments = buildAttachments(req.file)
+    const attachments = buildAttachments(getUploadedFiles(req))
     const referenceNumber = `VC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 6).toUpperCase()}`
 
     await sendEmailMessages([
@@ -634,7 +657,7 @@ app.post('/api/send-estimate', upload.single('modelFile'), async (req, res) => {
   }
 })
 
-app.post('/api/payments/paystack/initialize', upload.single('modelFile'), async (req, res) => {
+app.post('/api/payments/paystack/initialize', quoteUploadMiddleware, async (req, res) => {
   try {
     const order = buildOrderFromRequest(req)
     const { secretKey, callbackUrl } = getPaystackConfig()
@@ -730,7 +753,7 @@ app.post('/api/payments/paystack/verify', async (req, res) => {
   }
 })
 
-app.post('/api/payments/solana/create', upload.single('modelFile'), async (req, res) => {
+app.post('/api/payments/solana/create', quoteUploadMiddleware, async (req, res) => {
   try {
     const order = buildOrderFromRequest(req)
     const { recipientAddress } = getSolanaConfig()

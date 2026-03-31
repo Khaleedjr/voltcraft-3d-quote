@@ -8,7 +8,7 @@ import { CheckCircle, CreditCard, Loader2, MapPin, Truck, Wallet } from 'lucide-
 
 interface CheckoutFormProps {
   fileName: string
-  uploadedFile?: File | null
+  uploadedFiles?: File[]
   analysis: FileAnalysis
   material: Material
   settings: PrintSettings
@@ -40,7 +40,7 @@ const INITIAL_FORM_DATA: CustomerInfo = {
   notes: ''
 }
 
-const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, quote }: CheckoutFormProps) => {
+const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settings, quote }: CheckoutFormProps) => {
   const [formData, setFormData] = useState<CustomerInfo>(INITIAL_FORM_DATA)
   const [shippingZoneId, setShippingZoneId] = useState<string>(SHIPPING_ZONES[0]?.id || '')
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerInfo | 'shippingZone', string>>>({})
@@ -172,8 +172,8 @@ const CheckoutForm = ({ fileName, uploadedFile, analysis, material, settings, qu
     payload.append('settings', JSON.stringify(settings))
     payload.append('quote', JSON.stringify(quote))
 
-    if (uploadedFile) {
-      payload.append('modelFile', uploadedFile, uploadedFile.name)
+    for (const uploadedFile of uploadedFiles) {
+      payload.append('modelFiles', uploadedFile, uploadedFile.name)
     }
 
     return payload

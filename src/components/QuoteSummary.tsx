@@ -3,18 +3,24 @@ import { motion } from 'framer-motion'
 import { FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
 import { buildApiUrl, fetchWithTimeout, getApiErrorMessage, isAbortTimeoutError, parseApiResponse } from '../utils/api'
-import { Clock, Scale, Banknote, Package, Ruler, Layers, Sparkles, MessageCircle, Mail } from 'lucide-react'
+import { Clock, Scale, Ruler, Layers, Sparkles, MessageCircle, Mail } from 'lucide-react'
 
 interface QuoteSummaryProps {
   fileName: string
-  uploadedFile?: File | null
+  uploadedFiles?: File[]
   analysis: FileAnalysis
   material: Material
   settings: PrintSettings
   quote: QuoteResult
+  fileBreakdown?: Array<{
+    fileName: string
+    materialShortName?: string
+    analysis: FileAnalysis
+    quote: QuoteResult
+  }>
 }
 
-const QuoteSummary = ({ fileName, uploadedFile, analysis, material, settings, quote }: QuoteSummaryProps) => {
+const QuoteSummary = ({ fileName, uploadedFiles = [], analysis, material, settings, quote, fileBreakdown = [] }: QuoteSummaryProps) => {
   const [estimateEmail, setEstimateEmail] = useState('')
   const [isSendingEstimate, setIsSendingEstimate] = useState(false)
   const [estimateEmailError, setEstimateEmailError] = useState('')
@@ -41,15 +47,15 @@ Please confirm next steps. Thank you.
     `.trim()
 
     // Prefer native share with file attachment when supported (best on mobile devices).
-    if (uploadedFile && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    if (uploadedFiles.length > 0 && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       const shareData: ShareData = {
         title: 'Voltcraft Quote Request',
         text: message,
-        files: [uploadedFile]
+        files: uploadedFiles
       }
 
       const canShareFiles = typeof navigator.canShare === 'function'
-        ? navigator.canShare({ files: [uploadedFile] })
+        ? navigator.canShare({ files: uploadedFiles })
         : true
 
       if (canShareFiles) {
@@ -102,8 +108,8 @@ Please confirm next steps. Thank you.
       payload.append('analysis', JSON.stringify(analysis))
       payload.append('quote', JSON.stringify(quote))
 
-      if (uploadedFile) {
-        payload.append('modelFile', uploadedFile, uploadedFile.name)
+      for (const uploadedFile of uploadedFiles) {
+        payload.append('modelFiles', uploadedFile, uploadedFile.name)
       }
 
       const response = await fetchWithTimeout(buildApiUrl('/api/send-estimate'), {
@@ -170,32 +176,40 @@ Please confirm next steps. Thank you.
               {formatPrice(quote.totalCost)}
             </motion.div>
             <p className="text-gray-600 dark:text-voltcraft-gray-400 text-sm mt-2">
-              {settings.quantity > 1 ? `for ${settings.quantity} copies` : 'per unit'}
+              {settings.quantity > 1 ? `for ${settings.quantity} copies` : 'per unit'} • includes material and printing service
             </p>
           </div>
-          
-          {/* Price Breakdown */}
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg">
-              <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-sm mb-1">
-                <Package className="w-4 h-4" />
-                Material Cost
+
+          {fileBreakdown.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300">Per-file pricing</p>
+              <div className="space-y-2">
+                {fileBreakdown.map((item, index) => (
+                  <div
+                    key={`${item.fileName}-${index}`}
+                    className="p-3 rounded-lg bg-gray-100 dark:bg-voltcraft-gray-900/50 border border-gray-200 dark:border-voltcraft-gray-800"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {index + 1}. {item.fileName}
+                      </p>
+                      <p className="text-sm font-semibold text-voltcraft-primary whitespace-nowrap">
+                        {formatPrice(item.quote.totalCost)}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-voltcraft-gray-500">
+                      {item.materialShortName ? `${item.materialShortName} • ` : ''}
+                      {Math.round(item.analysis.volume)} cm³ • {item.quote.weight}g • {formatPrintTime(item.quote.printTime)}
+                    </p>
+                  </div>
+                ))}
               </div>
-              <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                {formatPrice(quote.materialCost)}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-voltcraft-gray-800">
+                <p className="text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300">Grand Total</p>
+                <p className="text-base font-bold text-voltcraft-primary">{formatPrice(quote.totalCost)}</p>
               </div>
             </div>
-            
-            <div className="p-4 bg-gray-100 dark:bg-voltcraft-gray-900/50 rounded-lg">
-              <div className="flex items-center gap-2 text-gray-600 dark:text-voltcraft-gray-400 text-sm mb-1">
-                <Banknote className="w-4 h-4" />
-                Service Fee
-              </div>
-              <div className="text-xl font-semibold text-gray-900 dark:text-white">
-                {formatPrice(quote.laborCost)}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
       
@@ -345,9 +359,9 @@ Please confirm next steps. Thank you.
         )}
       </div>
 
-      {uploadedFile && (
+      {uploadedFiles.length > 0 && (
         <p className="text-gray-500 dark:text-voltcraft-gray-500 text-xs text-center">
-          On supported mobile devices, this will open share options with your model file attached.
+          On supported mobile devices, this will open share options with your model file(s) attached.
         </p>
       )}
     </motion.div>

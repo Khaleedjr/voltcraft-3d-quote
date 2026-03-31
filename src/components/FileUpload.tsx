@@ -6,51 +6,72 @@ import { parseSTL, isValidFileType, formatFileSize } from '../utils/stlParser'
 import { FileAnalysis } from '../types'
 
 interface FileUploadProps {
-  onFileAnalyzed: (file: File, analysis: FileAnalysis) => void
+  onFilesAnalyzed: (
+    files: File[],
+    analysis: FileAnalysis,
+    perFileAnalyses: Array<{ file: File; analysis: FileAnalysis }>
+  ) => void
   isAnalyzing: boolean
   setIsAnalyzing: (value: boolean) => void
 }
 
-const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadProps) => {
+const FileUpload = ({ onFilesAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadProps) => {
   const [error, setError] = useState<string | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null)
     
     if (acceptedFiles.length === 0) return
 
-    const file = acceptedFiles[0]
-    
-    if (!isValidFileType(file)) {
-      setError('Invalid file type. Please upload an STL, OBJ, or 3MF file.')
-      return
-    }
-
-    if (file.size > 100 * 1024 * 1024) { // 100MB limit
-      setError('File too large. Maximum size is 100MB.')
-      return
-    }
-
-    setUploadedFile(file)
-    setIsAnalyzing(true)
-
-    try {
-      const analysis = await parseSTL(file)
-      
-      if (!analysis.isValid) {
-        setError(analysis.errors[0] || 'Failed to analyze file')
-        setIsAnalyzing(false)
+    for (const file of acceptedFiles) {
+      if (!isValidFileType(file)) {
+        setError(`Invalid file type: ${file.name}. Please upload STL, OBJ, or 3MF files only.`)
         return
       }
 
-      onFileAnalyzed(file, analysis)
+      if (file.size > 100 * 1024 * 1024) {
+        setError(`File too large: ${file.name}. Maximum size is 100MB per file.`)
+        return
+      }
+    }
+
+    setUploadedFiles(acceptedFiles)
+    setIsAnalyzing(true)
+
+    try {
+      const analyses = await Promise.all(acceptedFiles.map((file) => parseSTL(file)))
+
+      const firstInvalid = analyses.find((analysis) => !analysis.isValid)
+      if (firstInvalid) {
+        setError(firstInvalid.errors[0] || 'Failed to analyze one or more files')
+        return
+      }
+
+      const mergedAnalysis: FileAnalysis = {
+        volume: analyses.reduce((sum, analysis) => sum + analysis.volume, 0),
+        dimensions: {
+          x: Math.max(...analyses.map((analysis) => analysis.dimensions.x)),
+          y: Math.max(...analyses.map((analysis) => analysis.dimensions.y)),
+          z: Math.max(...analyses.map((analysis) => analysis.dimensions.z))
+        },
+        triangleCount: analyses.reduce((sum, analysis) => sum + analysis.triangleCount, 0),
+        isValid: true,
+        errors: []
+      }
+
+      const perFileAnalyses = acceptedFiles.map((file, index) => ({
+        file,
+        analysis: analyses[index]
+      }))
+
+      onFilesAnalyzed(acceptedFiles, mergedAnalysis, perFileAnalyses)
     } catch (err) {
       setError('Error analyzing file. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
-  }, [onFileAnalyzed, setIsAnalyzing])
+  }, [onFilesAnalyzed, setIsAnalyzing])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -61,7 +82,7 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
       'model/obj': ['.obj'],
       'model/3mf': ['.3mf']
     },
-    maxFiles: 1,
+    maxFiles: 10,
     disabled: isAnalyzing
   })
 
@@ -94,7 +115,7 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
                 </p>
               </div>
             </motion.div>
-          ) : uploadedFile && !error ? (
+          ) : uploadedFiles.length > 0 && !error ? (
             <motion.div
               key="uploaded"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -106,19 +127,34 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
                 <CheckCircle className="w-10 h-10 text-green-500" />
               </div>
               <div>
-                <p className="text-gray-900 dark:text-white font-semibold text-lg">{uploadedFile.name}</p>
+                <p className="text-gray-900 dark:text-white font-semibold text-lg">
+                  {uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} files selected`}
+                </p>
                 <p className="text-gray-600 dark:text-voltcraft-gray-400 text-sm mt-1">
-                  {formatFileSize(uploadedFile.size)}
+                  {formatFileSize(uploadedFiles.reduce((total, file) => total + file.size, 0))}
                 </p>
               </div>
+              {uploadedFiles.length > 1 && (
+                <div className="w-full max-w-md rounded-lg bg-gray-50 dark:bg-voltcraft-darker p-3 text-left">
+                  <p className="text-xs text-gray-500 dark:text-voltcraft-gray-500 mb-2">Uploaded models</p>
+                  <ul className="space-y-1 text-sm text-gray-700 dark:text-voltcraft-gray-300">
+                    {uploadedFiles.slice(0, 5).map((file) => (
+                      <li key={file.name}>{file.name}</li>
+                    ))}
+                    {uploadedFiles.length > 5 && (
+                      <li className="text-gray-500 dark:text-voltcraft-gray-500">+{uploadedFiles.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  setUploadedFile(null)
+                  setUploadedFiles([])
                 }}
                 className="text-voltcraft-secondary hover:text-voltcraft-primary text-sm font-medium"
               >
-                Upload different file
+                Upload different files
               </button>
             </motion.div>
           ) : (
@@ -146,7 +182,7 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
               </div>
               <div className="flex items-center gap-2 text-gray-500 dark:text-voltcraft-gray-500 text-sm">
                 <FileText className="w-4 h-4" />
-                <span>Supports STL, OBJ, 3MF (max 100MB)</span>
+                <span>Supports STL, OBJ, 3MF (up to 10 files, 100MB each)</span>
               </div>
             </motion.div>
           )}
@@ -168,7 +204,7 @@ const FileUpload = ({ onFileAnalyzed, isAnalyzing, setIsAnalyzing }: FileUploadP
               <button
                 onClick={() => {
                   setError(null)
-                  setUploadedFile(null)
+                  setUploadedFiles([])
                 }}
                 className="text-red-500 text-sm mt-1 hover:underline"
               >
