@@ -2,8 +2,14 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
-import { parseSTL, isValidFileType, formatFileSize } from '../utils/stlParser'
+import { parseModelFileParts, isValidFileType } from '../utils/modelParser'
 import { FileAnalysis } from '../types'
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 interface FileUploadProps {
   onFilesAnalyzed: (
@@ -40,13 +46,15 @@ const FileUpload = ({ onFilesAnalyzed, isAnalyzing, setIsAnalyzing }: FileUpload
     setIsAnalyzing(true)
 
     try {
-      const analyses = await Promise.all(acceptedFiles.map((file) => parseSTL(file)))
+      const partsResults = await Promise.all(acceptedFiles.map((file) => parseModelFileParts(file)))
 
-      const firstInvalid = analyses.find((analysis) => !analysis.isValid)
+      const firstInvalid = partsResults.find((res) => !res.analysis.isValid)
       if (firstInvalid) {
-        setError(firstInvalid.errors[0] || 'Failed to analyze one or more files')
+        setError(firstInvalid?.analysis.errors[0] || 'Failed to analyze one or more files')
         return
       }
+
+      const analyses = partsResults.map((r) => r.analysis)
 
       const mergedAnalysis: FileAnalysis = {
         volume: analyses.reduce((sum, analysis) => sum + analysis.volume, 0),
@@ -131,7 +139,7 @@ const FileUpload = ({ onFilesAnalyzed, isAnalyzing, setIsAnalyzing }: FileUpload
                   {uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} files selected`}
                 </p>
                 <p className="text-gray-600 dark:text-voltcraft-gray-400 text-sm mt-1">
-                  {formatFileSize(uploadedFiles.reduce((total, file) => total + file.size, 0))}
+                  {formatBytes(uploadedFiles.reduce((total, file) => total + file.size, 0))}
                 </p>
               </div>
               {uploadedFiles.length > 1 && (

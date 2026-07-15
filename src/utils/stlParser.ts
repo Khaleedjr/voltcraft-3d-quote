@@ -5,26 +5,50 @@ const parseBinarySTL = (buffer: ArrayBuffer): FileAnalysis => {
   const dataView = new DataView(buffer)
   
   // Skip 80 byte header
-  const triangleCount = dataView.getUint32(80, true)
+  const headerTriangleCount = dataView.getUint32(80, true)
   
   let minX = Infinity, minY = Infinity, minZ = Infinity
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
   let volume = 0
   
   // Each triangle is 50 bytes (12 normal + 36 vertices + 2 attribute)
-  const expectedSize = 84 + triangleCount * 50
-  
-  if (buffer.byteLength < expectedSize) {
+  const expectedSize = 84 + headerTriangleCount * 50
+
+  // If file is smaller than the header says, try to infer triangle count from size.
+  if (buffer.byteLength < 84) {
     return {
       volume: 0,
       dimensions: { x: 0, y: 0, z: 0 },
       triangleCount: 0,
       isValid: false,
-      errors: ['Invalid STL file: File size does not match triangle count']
+      errors: ['Invalid STL: file too small to contain triangles']
     }
   }
-  
-  for (let i = 0; i < triangleCount; i++) {
+
+  let triangleCount = headerTriangleCount
+
+  if (buffer.byteLength !== expectedSize) {
+    const inferred = Math.floor((buffer.byteLength - 84) / 50)
+    if (inferred > 0) {
+      // Use inferred count when header is unreliable; proceed rather than failing.
+      console.warn('STL header mismatch: using inferred triangle count', { headerTriangleCount, inferred, byteLength: buffer.byteLength })
+      triangleCount = inferred
+    } else if (buffer.byteLength < expectedSize) {
+      return {
+        volume: 0,
+        dimensions: { x: 0, y: 0, z: 0 },
+        triangleCount: 0,
+        isValid: false,
+        errors: ['Invalid STL file: File size does not match triangle count']
+      }
+    }
+  }
+
+  // Ensure we do not read past buffer end; adjust loop upper bound if necessary
+  const maxTrianglesBySize = Math.floor((buffer.byteLength - 84) / 50)
+  const loopCount = Math.min(triangleCount, maxTrianglesBySize)
+
+  for (let i = 0; i < loopCount; i++) {
     const offset = 84 + i * 50
     
     // Skip normal (12 bytes), read 3 vertices

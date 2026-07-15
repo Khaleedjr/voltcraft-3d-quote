@@ -13,8 +13,8 @@ export interface Material {
     printability: number // 1-5
   }
   printSpeed: number // mm/s base speed
-  bedTemp: number // °C
-  nozzleTemp: number // °C
+  bedTemp: number // ï¿½C
+  nozzleTemp: number // ï¿½C
   suitable: string[]
   image?: string
 }
@@ -36,13 +36,15 @@ export interface QuoteResult {
 }
 
 export interface FileAnalysis {
-  volume: number // cm³
+  volume: number // cmï¿½
   dimensions: {
     x: number
     y: number
     z: number
   }
   triangleCount: number
+  partCount?: number
+  format?: 'stl' | 'obj' | '3mf'
   isValid: boolean
   errors: string[]
 }

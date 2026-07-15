@@ -2,8 +2,8 @@ import { useRef, useEffect, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Center, Environment, Grid } from '@react-three/drei'
 import * as THREE from 'three'
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
 import { Box, RotateCcw, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { loadModelParts } from '../utils/modelParser'
 
 interface ModelViewerProps {
   file: File | null
@@ -11,62 +11,55 @@ interface ModelViewerProps {
   className?: string
 }
 
-// Component to load and display the STL model
-const STLModel = ({ file }: { file: File }) => {
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
-  const meshRef = useRef<THREE.Mesh>(null)
+// Component to load and display STL/OBJ/3MF models
+const LoadedModel = ({ file }: { file: File }) => {
+  const [models, setModels] = useState<THREE.BufferGeometry[] | null>(null)
+  const modelsRef = useRef<THREE.BufferGeometry[] | null>(null)
   const { camera } = useThree()
 
   useEffect(() => {
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const result = event.target?.result
-      if (result instanceof ArrayBuffer) {
-        const loader = new STLLoader()
-        const geo = loader.parse(result)
-        geo.computeBoundingBox()
-        geo.center()
-        
-        // Calculate scale to fit model in view
-        const bbox = geo.boundingBox!
-        const size = new THREE.Vector3()
-        bbox.getSize(size)
-        const maxDim = Math.max(size.x, size.y, size.z)
-        const scale = 100 / maxDim // Scale to fit in 100 unit box
-        
-        geo.scale(scale, scale, scale)
-        setGeometry(geo)
+    let cancelled = false
 
-        // Adjust camera position
-        if (camera instanceof THREE.PerspectiveCamera) {
-          camera.position.set(150, 150, 150)
-          camera.lookAt(0, 0, 0)
+    loadModelParts(file).then((loadedGeoms) => {
+      if (cancelled) return
+      if (!loadedGeoms || loadedGeoms.length === 0) return
+
+      modelsRef.current = loadedGeoms
+      setModels(loadedGeoms)
+
+      if (camera instanceof THREE.PerspectiveCamera) {
+        camera.position.set(150, 150, 150)
+        camera.lookAt(0, 0, 0)
+      }
+    })
+
+    return () => {
+      cancelled = true
+
+      const current = modelsRef.current
+      if (current && current.length) {
+        for (const g of current) {
+          g.dispose()
         }
       }
     }
-    reader.readAsArrayBuffer(file)
+  }, [file, camera])
 
-    return () => {
-      if (geometry) {
-        geometry.dispose()
-      }
-    }
-  }, [file])
-
-  if (!geometry) return null
+  if (!models) return null
 
   return (
     <Center>
-      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial 
-          color="#0066FF" 
-          metalness={0.3} 
-          roughness={0.4}
-          flatShading={false}
-        />
-      </mesh>
+      {models.map((geom, idx) => (
+        <mesh key={idx} geometry={geom} castShadow receiveShadow>
+          <meshStandardMaterial 
+            color={idx === 0 ? '#0066FF' : '#4B7BFF'}
+            metalness={0.3}
+            roughness={0.4}
+          />
+        </mesh>
+      ))}
     </Center>
   )
 }
@@ -171,7 +164,7 @@ const ModelViewer = ({ file, dimensions, className }: ModelViewerProps) => {
         />
         
         {/* Model or Dimension Box */}
-        {file && <STLModel file={file} />}
+        {file && <LoadedModel file={file} />}
         {showDimensionBox && <DimensionBox dimensions={dimensions} />}
         
         {/* Placeholder when no model */}

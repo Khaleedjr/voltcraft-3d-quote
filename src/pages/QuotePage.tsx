@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import FileUpload from '../components/FileUpload'
 import ManualDimensions from '../components/ManualDimensions'
@@ -8,6 +8,7 @@ import QuoteSummary from '../components/QuoteSummary'
 import { Material, PrintSettings, FileAnalysis, QuoteResult } from '../types'
 import { getDefaultMaterial } from '../data/materials'
 import { calculateQuote, validateDimensions, BUILD_VOLUME } from '../utils/quoteCalculator'
+import { getFileExtension } from '../utils/modelParser'
 import { AlertTriangle, ChevronDown, ChevronUp, Upload, Ruler, Maximize2 } from 'lucide-react'
 
 const ModelViewer = lazy(() => import('../components/ModelViewer'))
@@ -88,13 +89,19 @@ const QuotePage = () => {
     ? (fileConfigs[selectedPreviewIndex]?.scale ?? 1)
     : modelScale
 
-  const maxModelScale = getMaxScale(inputMode === 'file' ? selectedFileAnalysis : activeAnalysis)
+  const maxModelScale = useMemo(
+    () => getMaxScale(inputMode === 'file' ? selectedFileAnalysis : activeAnalysis),
+    [inputMode, selectedFileAnalysis, activeAnalysis]
+  )
 
-  const selectedScaledAnalysis = inputMode === 'file'
-    ? getScaledAnalysis(selectedFileAnalysis, selectedFileScale)
-    : getScaledAnalysis(activeAnalysis, modelScale)
+  const selectedScaledAnalysis = useMemo(
+    () => inputMode === 'file'
+      ? getScaledAnalysis(selectedFileAnalysis, selectedFileScale)
+      : getScaledAnalysis(activeAnalysis, modelScale),
+    [inputMode, selectedFileAnalysis, selectedFileScale, activeAnalysis, modelScale]
+  )
 
-  const scaledAnalysis = (() => {
+  const scaledAnalysis = useMemo(() => {
     if (inputMode === 'file' && fileAnalyses.length > 0) {
       const scaledPerFile = fileAnalyses
         .map((entry, index) => getScaledAnalysis(entry.analysis, fileConfigs[index]?.scale ?? 1))
@@ -118,7 +125,7 @@ const QuotePage = () => {
     }
 
     return getScaledAnalysis(activeAnalysis, modelScale)
-  })()
+  }, [inputMode, fileAnalyses, fileConfigs, activeAnalysis, modelScale])
 
   // Recalculate quote when settings or scale change
   useEffect(() => {
@@ -445,7 +452,11 @@ const QuotePage = () => {
                         </div>
                         <div className="p-2 bg-gray-50 dark:bg-voltcraft-darker rounded-lg">
                           <span className="text-gray-500 dark:text-voltcraft-gray-500">Type</span>
-                          <p className="text-gray-900 dark:text-white font-medium">{inputMode === 'file' ? 'STL File' : 'Estimated'}</p>
+                          <p className="text-gray-900 dark:text-white font-medium">
+                            {inputMode === 'file'
+                              ? `${(getFileExtension(files[selectedPreviewIndex]?.name || '') || 'model').toUpperCase()} File`
+                              : 'Estimated'}
+                          </p>
                         </div>
                       </div>
                     </div>

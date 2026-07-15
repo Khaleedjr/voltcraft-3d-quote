@@ -19,7 +19,10 @@ const port = Number(process.env.PORT || 3001)
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100 MB per file
+    files: 10 // allow up to 10 files in a single upload
+  }
 })
 
 const quoteUploadMiddleware = upload.fields([
