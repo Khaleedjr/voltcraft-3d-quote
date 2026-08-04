@@ -6,7 +6,8 @@ export const materials: Material[] = [
     name: 'PLA (Polylactic Acid)',
     shortName: 'PLA',
     description: 'The most popular 3D printing material. Eco-friendly, easy to print, and perfect for prototypes, display models, and decorative items.',
-    pricePerGram: 200,
+    pricePerGram: 80,
+    density: 1.24,
     colors: ['Black', 'White'],
     properties: {
       strength: 3,
@@ -24,7 +25,8 @@ export const materials: Material[] = [
     name: 'PETG (Polyethylene Terephthalate Glycol)',
     shortName: 'PETG',
     description: 'Excellent balance of strength, flexibility, and temperature resistance. Great for functional parts that need durability.',
-    pricePerGram: 250,
+    pricePerGram: 100,
+    density: 1.27,
     colors: ['Red', 'Blue', 'Grey'],
     properties: {
       strength: 4,

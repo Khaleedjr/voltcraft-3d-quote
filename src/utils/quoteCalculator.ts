@@ -36,20 +36,25 @@ export const calculatePrintTime = (
   return Math.ceil(totalTime * settings.quantity)
 }
 
-// Calculate material weight from volume
+// Calculate material weight from volume.
+// volumeCm3 is the true solid (mesh) volume of the model. A real slicer prints
+// the outer walls and top/bottom layers nearly solid and fills the interior at
+// the infill percentage, so we split the solid volume into a shell portion and
+// an interior portion and weigh each with the material's own density.
 export const calculateWeight = (
   volumeCm3: number,
+  material: Material,
   settings: PrintSettings
 ): number => {
-  // PLA density ~1.24 g/cm³, adjust for infill
-  const baseDensity = 1.24
+  // Material-specific density (g/cm³) instead of assuming PLA for everything
+  const density = material.density || 1.24
   const infillMultiplier = 0.3 + (settings.infillPercentage / 100) * 0.7
   const supportMultiplier = settings.supportEnabled ? 1.15 : 1.0
-  
+
   // Shell + infill weight estimation
-  const shellWeight = volumeCm3 * 0.3 * baseDensity // Outer shell
-  const infillWeight = volumeCm3 * 0.7 * baseDensity * infillMultiplier
-  
+  const shellWeight = volumeCm3 * 0.3 * density // Outer shell
+  const infillWeight = volumeCm3 * 0.7 * density * infillMultiplier
+
   return (shellWeight + infillWeight) * supportMultiplier * settings.quantity
 }
 
@@ -59,7 +64,7 @@ export const calculateQuote = (
   material: Material,
   settings: PrintSettings
 ): QuoteResult => {
-  const weight = calculateWeight(analysis.volume, settings)
+  const weight = calculateWeight(analysis.volume, material, settings)
   const printTime = calculatePrintTime(analysis.volume, material, settings)
   
   const materialCost = weight * material.pricePerGram

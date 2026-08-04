@@ -5,6 +5,7 @@ export interface Material {
   shortName: string
   description: string
   pricePerGram: number // in Naira
+  density: number // g/cm³ (used for weight estimation)
   colors: string[]
   properties: {
     strength: number // 1-5

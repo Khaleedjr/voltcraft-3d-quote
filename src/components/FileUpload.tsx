@@ -105,8 +105,10 @@ const FileUpload = ({ onFilesAnalyzed, isAnalyzing, setIsAnalyzing }: FileUpload
         } ${isAnalyzing ? 'pointer-events-none opacity-60' : ''}`}
       >
         <input {...getInputProps()} />
-        
-        <AnimatePresence mode="wait">
+
+        {/* initial={false} renders the first state at full opacity immediately,
+            so the dropzone text never gets stuck invisible until a click. */}
+        <AnimatePresence mode="wait" initial={false}>
           {isAnalyzing ? (
             <motion.div
               key="analyzing"
