@@ -307,11 +307,19 @@ Please confirm next steps. Thank you.
           </div>
         </div>
         
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-voltcraft-gray-800">
-          <span className="text-gray-500 dark:text-voltcraft-gray-500 text-sm">Dimensions: </span>
-          <span className="text-gray-900 dark:text-white text-sm font-medium">
-            {analysis.dimensions.x} × {analysis.dimensions.y} × {analysis.dimensions.z} mm
-          </span>
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-voltcraft-gray-800 space-y-1">
+          <div>
+            <span className="text-gray-500 dark:text-voltcraft-gray-500 text-sm">Dimensions: </span>
+            <span className="text-gray-900 dark:text-white text-sm font-medium">
+              {analysis.dimensions.x} × {analysis.dimensions.y} × {analysis.dimensions.z} mm
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500 dark:text-voltcraft-gray-500 text-sm">Walls: </span>
+            <span className="text-gray-900 dark:text-white text-sm font-medium">
+              {(settings.wallCount || 2) >= 3 ? 'Strong (3)' : 'Standard (2)'}
+            </span>
+          </div>
         </div>
       </div>
       

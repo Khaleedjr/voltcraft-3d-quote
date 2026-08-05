@@ -26,6 +26,7 @@ export interface PrintSettings {
   supportEnabled: boolean
   quantity: number
   color: string
+  wallCount?: number // perimeter walls; 2 = standard, 3 = strong. Defaults to 2.
 }
 
 export interface QuoteResult {

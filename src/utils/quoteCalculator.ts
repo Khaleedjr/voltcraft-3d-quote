@@ -11,10 +11,16 @@ export const BUILD_VOLUME = {
 const BASE_LABOR_COST = 500
 const LABOR_PER_HOUR = 300
 
-// Effective wall thickness of the printed shell: roughly two perimeters
-// (~0.42 + 0.45 mm at a 0.4 nozzle) plus an allowance for the solid top and
-// bottom skins. Calibrated against Bambu Studio slices.
-const SHELL_THICKNESS_MM = 0.9
+// Printed shell thickness = perimeter walls + an allowance for the solid top
+// and bottom skins. At a 0.4 mm nozzle each wall lays down ~0.42 mm, so the
+// standard 2-wall profile gives 0.9 mm. Calibrated against Bambu Studio: a
+// 2-wall slice came in at 285.54 g against 283.1 g estimated.
+const WALL_LINE_WIDTH_MM = 0.42
+const SKIN_ALLOWANCE_MM = 0.06
+export const DEFAULT_WALL_COUNT = 2
+
+const getShellThickness = (settings: PrintSettings): number =>
+  (settings.wallCount || DEFAULT_WALL_COUNT) * WALL_LINE_WIDTH_MM + SKIN_ALLOWANCE_MM
 
 // Average volumetric throughput in mm³/s, i.e. how fast material actually goes
 // down once travel, retraction and perimeter slowdowns are averaged in.
@@ -74,7 +80,7 @@ export const calculateMaterialVolume = (
   const surfaceArea = getSurfaceArea(analysis)
 
   const shellVolume = surfaceArea > 0
-    ? Math.min(volumeCm3, surfaceArea * SHELL_THICKNESS_MM * 0.1) // cm² × mm -> cm³
+    ? Math.min(volumeCm3, surfaceArea * getShellThickness(settings) * 0.1) // cm² × mm -> cm³
     : volumeCm3 * 0.3
   const interiorVolume = Math.max(0, volumeCm3 - shellVolume)
 
@@ -204,14 +210,16 @@ export const getRecommendedSettings = (useCase: string): PrintSettings => {
       infillPercentage: 40,
       supportEnabled: false,
       quantity: 1,
-      color: 'Black'
+      color: 'Black',
+      wallCount: 3
     },
     strong: {
       layerHeight: 0.16,
       infillPercentage: 60,
       supportEnabled: false,
       quantity: 1,
-      color: 'Black'
+      color: 'Black',
+      wallCount: 3
     }
   }
   

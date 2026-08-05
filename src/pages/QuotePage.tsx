@@ -45,7 +45,8 @@ const QuotePage = () => {
     infillPercentage: 20,
     supportEnabled: false,
     quantity: 1,
-    color: getDefaultMaterial().colors[0]
+    color: getDefaultMaterial().colors[0],
+    wallCount: 2
   })
   const [quote, setQuote] = useState<QuoteResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)

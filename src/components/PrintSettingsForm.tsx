@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { PrintSettings } from '../types'
-import { Layers, Grid3X3, Combine, Hash, Palette } from 'lucide-react'
+import { Layers, Grid3X3, Combine, Hash, Palette, Shield } from 'lucide-react'
 
 interface PrintSettingsFormProps {
   settings: PrintSettings
@@ -14,6 +14,11 @@ const layerHeightOptions = [
   { value: 0.16, label: 'Quality', description: '0.16mm - Better detail' },
   { value: 0.12, label: 'Fine', description: '0.12mm - High detail' },
   { value: 0.08, label: 'Ultra Fine', description: '0.08mm - Best detail, slowest' },
+]
+
+const wallOptions = [
+  { value: 2, label: 'Standard', description: '2 walls - everyday parts' },
+  { value: 3, label: 'Strong', description: '3 walls - thicker, tougher shell' },
 ]
 
 const infillPresets = [
@@ -134,6 +139,37 @@ const PrintSettingsForm = ({ settings, onSettingsChange, availableColors }: Prin
             <span className="text-voltcraft-primary font-medium">{settings.infillPercentage}%</span>
             <span>100%</span>
           </div>
+        </div>
+      </div>
+
+      {/* Wall strength */}
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300">
+          <Shield className="w-4 h-4 text-voltcraft-primary" />
+          Wall Strength
+        </label>
+        <div className="flex gap-3">
+          {wallOptions.map((option) => {
+            const isSelected = (settings.wallCount || 2) === option.value
+            return (
+              <motion.button
+                key={option.value}
+                onClick={() => updateSetting('wallCount', option.value)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`flex-1 p-4 rounded-lg text-left transition-all ${
+                  isSelected
+                    ? 'bg-voltcraft-primary/20 border-2 border-voltcraft-primary'
+                    : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
+                }`}
+              >
+                <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                <div className="text-xs text-gray-600 dark:text-voltcraft-gray-400 mt-1">
+                  {option.description}
+                </div>
+              </motion.button>
+            )
+          })}
         </div>
       </div>
 
