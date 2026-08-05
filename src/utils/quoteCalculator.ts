@@ -16,10 +16,13 @@ const LABOR_PER_HOUR = 300
 // bottom skins. Calibrated against Bambu Studio slices.
 const SHELL_THICKNESS_MM = 0.9
 
-// Average volumetric throughput at a 0.2 mm layer height, in mm³/s. Thicker
-// layers lay down more material per second, thinner layers less. Calibrated
-// against Bambu Studio (Bambu Lab A1, PLA).
-const BASE_FLOW_MM3_PER_SEC = 9
+// Average volumetric throughput in mm³/s, i.e. how fast material actually goes
+// down once travel, retraction and perimeter slowdowns are averaged in.
+// Calibrated against two Bambu Studio slices of the same model (Bambu Lab A1,
+// PLA): 5.29 mm³/s at a 0.12 mm layer and 5.23 mm³/s at 0.20 mm. Throughput
+// barely moves with layer height because the stock profiles raise print speed
+// as layers get thinner, so this is deliberately not scaled by layer height.
+const BASE_FLOW_MM3_PER_SEC = 5.25
 
 // Support structures print sparse, so they use far less material than the
 // volume they occupy.
@@ -87,9 +90,8 @@ export const calculatePrintTime = (
   material: Material,
   settings: PrintSettings
 ): number => {
-  const layerFactor = settings.layerHeight / 0.2
   const speedFactor = material.printSpeed / 100
-  const flow = clamp(BASE_FLOW_MM3_PER_SEC * layerFactor * speedFactor, 2, 16)
+  const flow = clamp(BASE_FLOW_MM3_PER_SEC * speedFactor, 2, 16)
 
   const minutes = (materialVolumeCm3 * 1000) / flow / 60
 
