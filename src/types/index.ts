@@ -33,11 +33,17 @@ export interface QuoteResult {
   printTime: number // in minutes
   laborCost: number
   totalCost: number
-  weight: number // in grams
+  weight: number // in grams, model + support
+  supportWeight?: number // in grams, support structures only
+  hasSupport?: boolean
+  modelVolume?: number // cm³ of material in the model itself
 }
 
 export interface FileAnalysis {
   volume: number // cm�
+  surfaceArea?: number // cm² — drives the wall/shell part of the weight estimate
+  supportVolume?: number // cm³ of support material the slicer would add
+  needsSupport?: boolean // true when overhangs require support structures
   dimensions: {
     x: number
     y: number

@@ -11,51 +11,102 @@ export const BUILD_VOLUME = {
 const BASE_LABOR_COST = 500
 const LABOR_PER_HOUR = 300
 
-// Calculate estimated print time based on volume and settings
-export const calculatePrintTime = (
-  volumeCm3: number,
-  material: Material,
-  settings: PrintSettings
-): number => {
-  // Base time calculation (empirical formula for FDM printing)
-  const layerHeightFactor = 0.2 / settings.layerHeight // Relative to standard 0.2mm
-  const infillFactor = settings.infillPercentage / 20 // Factor based on infill
-  const supportFactor = settings.supportEnabled ? 1.3 : 1.0
-  const speedFactor = 100 / material.printSpeed // Relative to base speed
-  
-  // Approximate print time in minutes
-  // Volume in cm³ * base factor * adjustments
-  const baseTimeMinutes = volumeCm3 * 8 // ~8 min per cm³ base
-  
-  const totalTime = baseTimeMinutes * 
-    layerHeightFactor * 
-    infillFactor * 
-    supportFactor * 
-    speedFactor
+// Effective wall thickness of the printed shell: roughly two perimeters
+// (~0.42 + 0.45 mm at a 0.4 nozzle) plus an allowance for the solid top and
+// bottom skins. Calibrated against Bambu Studio slices.
+const SHELL_THICKNESS_MM = 0.9
 
-  return Math.ceil(totalTime * settings.quantity)
+// Average volumetric throughput at a 0.2 mm layer height, in mm³/s. Thicker
+// layers lay down more material per second, thinner layers less. Calibrated
+// against Bambu Studio (Bambu Lab A1, PLA).
+const BASE_FLOW_MM3_PER_SEC = 9
+
+// Support structures print sparse, so they use far less material than the
+// volume they occupy.
+const FORCED_SUPPORT_FRACTION = 0.08
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value))
+
+// Surface area in cm². Falls back to the bounding box (exact for the manual
+// "enter dimensions" mode, which describes a solid box).
+const getSurfaceArea = (analysis: FileAnalysis): number => {
+  if (analysis.surfaceArea && analysis.surfaceArea > 0) {
+    return analysis.surfaceArea
+  }
+  const { x, y, z } = analysis.dimensions
+  if (x > 0 && y > 0 && z > 0) {
+    return (2 * (x * y + y * z + z * x)) / 100 // mm² -> cm²
+  }
+  return 0
 }
 
-// Calculate material weight from volume.
-// volumeCm3 is the true solid (mesh) volume of the model. A real slicer prints
-// the outer walls and top/bottom layers nearly solid and fills the interior at
-// the infill percentage, so we split the solid volume into a shell portion and
-// an interior portion and weigh each with the material's own density.
-export const calculateWeight = (
-  volumeCm3: number,
+// Support material for one unit, in cm³.
+export const getSupportVolume = (
+  analysis: FileAnalysis,
+  modelVolumeCm3: number,
+  settings: PrintSettings
+): number => {
+  const detected = analysis.supportVolume || 0
+
+  // Auto: only charge for support when the geometry actually needs it.
+  if (!settings.supportEnabled) {
+    return analysis.needsSupport ? detected : 0
+  }
+
+  // Forced on: always include something, even if no overhang was detected.
+  return Math.max(detected, modelVolumeCm3 * FORCED_SUPPORT_FRACTION)
+}
+
+// Material actually extruded for one unit, in cm³ (model + support).
+// A slicer prints the walls and top/bottom skins solid and fills only the
+// interior at the infill percentage — so the split depends on the model's
+// surface area, not a fixed ratio. Thin-walled or hollow models are almost
+// entirely shell and come out much heavier than a flat 30/70 guess.
+export const calculateMaterialVolume = (
+  analysis: FileAnalysis,
+  settings: PrintSettings
+): { model: number; support: number; total: number } => {
+  const volumeCm3 = Math.max(0, analysis.volume)
+  const surfaceArea = getSurfaceArea(analysis)
+
+  const shellVolume = surfaceArea > 0
+    ? Math.min(volumeCm3, surfaceArea * SHELL_THICKNESS_MM * 0.1) // cm² × mm -> cm³
+    : volumeCm3 * 0.3
+  const interiorVolume = Math.max(0, volumeCm3 - shellVolume)
+
+  const model = shellVolume + interiorVolume * (settings.infillPercentage / 100)
+  const support = getSupportVolume(analysis, model, settings)
+
+  return { model, support, total: model + support }
+}
+
+// Calculate estimated print time from the material actually extruded
+export const calculatePrintTime = (
+  materialVolumeCm3: number,
   material: Material,
   settings: PrintSettings
 ): number => {
-  // Material-specific density (g/cm³) instead of assuming PLA for everything
+  const layerFactor = settings.layerHeight / 0.2
+  const speedFactor = material.printSpeed / 100
+  const flow = clamp(BASE_FLOW_MM3_PER_SEC * layerFactor * speedFactor, 2, 16)
+
+  const minutes = (materialVolumeCm3 * 1000) / flow / 60
+
+  return Math.ceil(minutes * settings.quantity)
+}
+
+// Calculate printed weight (model + support) in grams, using the material's
+// own density instead of assuming PLA for everything.
+export const calculateWeight = (
+  analysis: FileAnalysis,
+  material: Material,
+  settings: PrintSettings
+): number => {
   const density = material.density || 1.24
-  const infillMultiplier = 0.3 + (settings.infillPercentage / 100) * 0.7
-  const supportMultiplier = settings.supportEnabled ? 1.15 : 1.0
+  const { total } = calculateMaterialVolume(analysis, settings)
 
-  // Shell + infill weight estimation
-  const shellWeight = volumeCm3 * 0.3 * density // Outer shell
-  const infillWeight = volumeCm3 * 0.7 * density * infillMultiplier
-
-  return (shellWeight + infillWeight) * supportMultiplier * settings.quantity
+  return total * density * settings.quantity
 }
 
 // Generate full quote
@@ -64,12 +115,16 @@ export const calculateQuote = (
   material: Material,
   settings: PrintSettings
 ): QuoteResult => {
-  const weight = calculateWeight(analysis.volume, material, settings)
-  const printTime = calculatePrintTime(analysis.volume, material, settings)
-  
+  const density = material.density || 1.24
+  const { model, support, total } = calculateMaterialVolume(analysis, settings)
+
+  const weight = total * density * settings.quantity
+  const supportWeight = support * density * settings.quantity
+  const printTime = calculatePrintTime(total, material, settings)
+
   const materialCost = weight * material.pricePerGram
   const laborCost = BASE_LABOR_COST + (printTime / 60) * LABOR_PER_HOUR
-  
+
   const totalCost = materialCost + laborCost
 
   return {
@@ -77,7 +132,10 @@ export const calculateQuote = (
     printTime,
     laborCost: Math.ceil(laborCost),
     totalCost: Math.ceil(totalCost),
-    weight: Math.round(weight * 10) / 10
+    weight: Math.round(weight * 10) / 10,
+    supportWeight: Math.round(supportWeight * 10) / 10,
+    hasSupport: support > 0,
+    modelVolume: Math.round(model * 100) / 100
   }
 }
 

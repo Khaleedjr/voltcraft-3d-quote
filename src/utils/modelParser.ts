@@ -59,6 +59,260 @@ const triangleVolume = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3): n
   ) / 6
 }
 
+// Surface area of a triangle (mm²)
+const triangleArea = (() => {
+  const ab = new THREE.Vector3()
+  const ac = new THREE.Vector3()
+  const cr = new THREE.Vector3()
+  return (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3): number => {
+    ab.subVectors(b, a)
+    ac.subVectors(c, a)
+    cr.crossVectors(ab, ac)
+    return cr.length() / 2
+  }
+})()
+
+// Total surface area of a geometry, in mm²
+const geometrySurfaceArea = (geometry: THREE.BufferGeometry): number => {
+  const position = geometry.getAttribute('position')
+  if (!position) return 0
+
+  const a = new THREE.Vector3()
+  const b = new THREE.Vector3()
+  const c = new THREE.Vector3()
+  let area = 0
+
+  const index = geometry.index
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) {
+      a.fromBufferAttribute(position, index.getX(i))
+      b.fromBufferAttribute(position, index.getX(i + 1))
+      c.fromBufferAttribute(position, index.getX(i + 2))
+      area += triangleArea(a, b, c)
+    }
+  } else {
+    for (let i = 0; i < position.count; i += 3) {
+      a.fromBufferAttribute(position, i)
+      b.fromBufferAttribute(position, i + 1)
+      c.fromBufferAttribute(position, i + 2)
+      area += triangleArea(a, b, c)
+    }
+  }
+
+  return area
+}
+
+// ---------------------------------------------------------------------------
+// Support structure estimation
+//
+// A face needs support when it points downwards more steeply than the overhang
+// threshold (45° is the slicer default — anything shallower is self-supporting).
+// We then cast a ray straight down from the face: if it lands on another part
+// of the model, the support would have to stand on the model itself, which the
+// common "support on build plate only" slicer setting skips (and which you
+// could not remove from an enclosed cavity anyway). Only overhangs with a clear
+// drop to the build plate are counted.
+//
+// Support volume ≈ Σ (projected area × drop height) × support density.
+// ---------------------------------------------------------------------------
+
+const OVERHANG_THRESHOLD = Math.cos((45 * Math.PI) / 180) // 45° from horizontal
+const SUPPORT_DENSITY = 0.12 // supports print sparse, ~12% infill
+const BED_TOLERANCE = 0.5 // mm — faces this close to the lowest point rest on the plate
+const MIN_DROP = 1.0 // mm — shorter gaps are bridged by the slicer
+const MAX_SUPPORT_TRIANGLES = 400000 // guard against pathological meshes
+
+export interface SupportEstimate {
+  supportVolume: number // cm³
+  needsSupport: boolean
+}
+
+// Uniform XY grid so the downward ray only tests nearby triangles.
+class TriangleGrid {
+  private cells = new Map<number, number[]>()
+  private cols: number
+  private rows: number
+
+  constructor(
+    private minX: number,
+    private minY: number,
+    private cellW: number,
+    private cellH: number,
+    cols: number,
+    rows: number
+  ) {
+    this.cols = cols
+    this.rows = rows
+  }
+
+  private key(gx: number, gy: number): number {
+    return gy * this.cols + gx
+  }
+
+  clampX(x: number): number {
+    return Math.min(this.cols - 1, Math.max(0, Math.floor((x - this.minX) / this.cellW)))
+  }
+
+  clampY(y: number): number {
+    return Math.min(this.rows - 1, Math.max(0, Math.floor((y - this.minY) / this.cellH)))
+  }
+
+  insert(triIndex: number, x0: number, x1: number, y0: number, y1: number): void {
+    const gx0 = this.clampX(x0)
+    const gx1 = this.clampX(x1)
+    const gy0 = this.clampY(y0)
+    const gy1 = this.clampY(y1)
+    for (let gy = gy0; gy <= gy1; gy += 1) {
+      for (let gx = gx0; gx <= gx1; gx += 1) {
+        const k = this.key(gx, gy)
+        const bucket = this.cells.get(k)
+        if (bucket) bucket.push(triIndex)
+        else this.cells.set(k, [triIndex])
+      }
+    }
+  }
+
+  query(x: number, y: number): number[] {
+    return this.cells.get(this.key(this.clampX(x), this.clampY(y))) || []
+  }
+}
+
+export const estimateSupport = (geometries: THREE.BufferGeometry[]): SupportEstimate => {
+  // Flatten every part into one triangle soup: supports must "see" the whole
+  // plate, since one part can shield another.
+  const verts: number[] = []
+  for (const geometry of geometries) {
+    const position = geometry.getAttribute('position')
+    if (!position) continue
+    const index = geometry.index
+    const push = (i: number) => {
+      verts.push(position.getX(i), position.getY(i), position.getZ(i))
+    }
+    if (index) {
+      for (let i = 0; i < index.count; i += 1) push(index.getX(i))
+    } else {
+      for (let i = 0; i < position.count; i += 1) push(i)
+    }
+  }
+
+  const triCount = Math.floor(verts.length / 9)
+  if (triCount === 0 || triCount > MAX_SUPPORT_TRIANGLES) {
+    return { supportVolume: 0, needsSupport: false }
+  }
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  let minZ = Infinity
+  for (let i = 0; i < verts.length; i += 3) {
+    if (verts[i] < minX) minX = verts[i]
+    if (verts[i] > maxX) maxX = verts[i]
+    if (verts[i + 1] < minY) minY = verts[i + 1]
+    if (verts[i + 1] > maxY) maxY = verts[i + 1]
+    if (verts[i + 2] < minZ) minZ = verts[i + 2]
+  }
+
+  const cols = 64
+  const rows = 64
+  const cellW = Math.max((maxX - minX) / cols, 1e-6)
+  const cellH = Math.max((maxY - minY) / rows, 1e-6)
+  const grid = new TriangleGrid(minX, minY, cellW, cellH, cols, rows)
+
+  for (let t = 0; t < triCount; t += 1) {
+    const o = t * 9
+    grid.insert(
+      t,
+      Math.min(verts[o], verts[o + 3], verts[o + 6]),
+      Math.max(verts[o], verts[o + 3], verts[o + 6]),
+      Math.min(verts[o + 1], verts[o + 4], verts[o + 7]),
+      Math.max(verts[o + 1], verts[o + 4], verts[o + 7])
+    )
+  }
+
+  // Highest surface strictly below (px, py, pz); null when nothing is below.
+  const surfaceBelow = (px: number, py: number, pz: number): number | null => {
+    let best: number | null = null
+    for (const t of grid.query(px, py)) {
+      const o = t * 9
+      const ax = verts[o]
+      const ay = verts[o + 1]
+      const az = verts[o + 2]
+      const bx = verts[o + 3]
+      const by = verts[o + 4]
+      const cx = verts[o + 6]
+      const cy = verts[o + 7]
+
+      // 2D point-in-triangle via consistent edge signs
+      const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by)
+      const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy)
+      const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay)
+      const hasNeg = d1 < 0 || d2 < 0 || d3 < 0
+      const hasPos = d1 > 0 || d2 > 0 || d3 > 0
+      if (hasNeg && hasPos) continue
+
+      // Plane height at (px, py)
+      const nx = (verts[o + 4] - ay) * (verts[o + 8] - az) - (verts[o + 5] - az) * (verts[o + 7] - ay)
+      const ny = (verts[o + 5] - az) * (verts[o + 6] - ax) - (verts[o + 3] - ax) * (verts[o + 8] - az)
+      const nz = (verts[o + 3] - ax) * (verts[o + 7] - ay) - (verts[o + 4] - ay) * (verts[o + 6] - ax)
+      if (Math.abs(nz) < 1e-12) continue
+      const z = az + ((ax - px) * nx + (ay - py) * ny) / nz
+      if (z < pz - 0.05 && (best === null || z > best)) best = z
+    }
+    return best
+  }
+
+  const a = new THREE.Vector3()
+  const b = new THREE.Vector3()
+  const c = new THREE.Vector3()
+  const ab = new THREE.Vector3()
+  const ac = new THREE.Vector3()
+  const normal = new THREE.Vector3()
+
+  let supportVolumeMm3 = 0
+  let overhangArea = 0
+
+  for (let t = 0; t < triCount; t += 1) {
+    const o = t * 9
+    a.set(verts[o], verts[o + 1], verts[o + 2])
+    b.set(verts[o + 3], verts[o + 4], verts[o + 5])
+    c.set(verts[o + 6], verts[o + 7], verts[o + 8])
+
+    ab.subVectors(b, a)
+    ac.subVectors(c, a)
+    normal.crossVectors(ab, ac)
+    const len = normal.length()
+    if (len === 0) continue
+
+    const nz = normal.z / len
+    if (nz >= -OVERHANG_THRESHOLD) continue // self-supporting
+
+    const cz = (a.z + b.z + c.z) / 3
+    if (cz - minZ < BED_TOLERANCE) continue // already sitting on the plate
+
+    const px = (a.x + b.x + c.x) / 3
+    const py = (a.y + b.y + c.y) / 3
+
+    // Support on build plate only: skip overhangs that sit above other geometry.
+    if (surfaceBelow(px, py, cz) !== null) continue
+
+    const drop = cz - minZ
+    if (drop < MIN_DROP) continue
+
+    const area = len / 2
+    const projected = area * Math.abs(nz)
+    overhangArea += area
+    supportVolumeMm3 += projected * drop
+  }
+
+  const supportVolume = (supportVolumeMm3 * SUPPORT_DENSITY) / 1000 // cm³
+  return {
+    supportVolume: Math.round(supportVolume * 100) / 100,
+    // Ignore trivial slivers so simple parts stay support-free
+    needsSupport: supportVolume > 0.05 && overhangArea > 25
+  }
+}
+
 interface ThreeMFFallbackResult {
   geometry: THREE.BufferGeometry
   analysis: FileAnalysis
@@ -412,6 +666,7 @@ const parseThreeMFProduction = (buffer: ArrayBuffer): ThreeMFProductionResult | 
   const geometries: THREE.BufferGeometry[] = []
   const overallBox = new THREE.Box3()
   let totalVolume = 0
+  let totalArea = 0
   let totalTriangles = 0
 
   const vertex = new THREE.Vector3()
@@ -447,6 +702,7 @@ const parseThreeMFProduction = (buffer: ArrayBuffer): ThreeMFProductionResult | 
         b.set(positions[i1], positions[i1 + 1], positions[i1 + 2])
         c.set(positions[i2], positions[i2 + 1], positions[i2 + 2])
         volume += triangleVolume(a, b, c)
+        totalArea += triangleArea(a, b, c)
       }
       totalVolume += Math.abs(volume)
       totalTriangles += Math.floor(indices.length / 3)
@@ -480,6 +736,7 @@ const parseThreeMFProduction = (buffer: ArrayBuffer): ThreeMFProductionResult | 
     geometries,
     analysis: {
       volume: Math.round((totalVolume / 1000) * 100) / 100,
+      surfaceArea: Math.round((totalArea / 100) * 100) / 100, // mm² -> cm²
       dimensions: {
         x: Math.round(size.x * 100) / 100,
         y: Math.round(size.y * 100) / 100,
@@ -539,6 +796,7 @@ const analyzeGeometry = (geometry: THREE.BufferGeometry, format: SupportedModelF
 
   return {
     volume: Math.round((Math.abs(volume) / 1000) * 100) / 100,
+    surfaceArea: Math.round((geometrySurfaceArea(geometry) / 100) * 100) / 100, // mm² -> cm²
     dimensions: {
       x: Math.round(size.x * 100) / 100,
       y: Math.round(size.y * 100) / 100,
@@ -923,7 +1181,7 @@ const collectGeometriesFromObject = (object: THREE.Object3D): THREE.BufferGeomet
 }
 
 // Parse a model file and return separate geometries (parts) and aggregated analysis
-export const parseModelFileParts = async (file: File): Promise<{ geometries: THREE.BufferGeometry[]; analysis: FileAnalysis }> => {
+const parseModelFilePartsRaw = async (file: File): Promise<{ geometries: THREE.BufferGeometry[]; analysis: FileAnalysis }> => {
   const format = getFileExtension(file.name)
   if (!format) {
     return { geometries: [], analysis: { volume: 0, dimensions: { x: 0, y: 0, z: 0 }, triangleCount: 0, partCount: 0, format: undefined, isValid: false, errors: ['Unsupported file type. Please upload STL, OBJ, or 3MF files.'] } }
@@ -941,6 +1199,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
       const analyses = parts.map((g) => analyzeGeometry(g, format))
       // aggregate
       const totalVolume = analyses.reduce((s, a) => s + a.volume, 0)
+      const totalArea = analyses.reduce((s, a) => s + (a.surfaceArea || 0), 0)
       const totalTriangles = analyses.reduce((s, a) => s + a.triangleCount, 0)
       // overall bbox
       const bbox = new THREE.Box3()
@@ -956,6 +1215,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
         geometries: parts,
         analysis: {
           volume: Math.round(totalVolume * 100) / 100,
+          surfaceArea: Math.round(totalArea * 100) / 100,
           dimensions: { x: Math.round(size.x * 100) / 100, y: Math.round(size.y * 100) / 100, z: Math.round(size.z * 100) / 100 },
           triangleCount: totalTriangles,
           partCount: parts.length,
@@ -974,6 +1234,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
       for (const p of parts) normalizeGeometryToMillimeters(p)
       const analyses = parts.map((g) => analyzeGeometry(g, format))
       const totalVolume = analyses.reduce((s, a) => s + a.volume, 0)
+      const totalArea = analyses.reduce((s, a) => s + (a.surfaceArea || 0), 0)
       const totalTriangles = analyses.reduce((s, a) => s + a.triangleCount, 0)
       const bbox = new THREE.Box3()
       for (const g of parts) {
@@ -986,6 +1247,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
         geometries: parts,
         analysis: {
           volume: Math.round(totalVolume * 100) / 100,
+          surfaceArea: Math.round(totalArea * 100) / 100,
           dimensions: { x: Math.round(size.x * 100) / 100, y: Math.round(size.y * 100) / 100, z: Math.round(size.z * 100) / 100 },
           triangleCount: totalTriangles,
           partCount: parts.length,
@@ -1014,6 +1276,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
       for (const p of parts) normalizeGeometryToMillimeters(p)
       const analyses = parts.map((g) => analyzeGeometry(g, '3mf'))
       const totalVolume = analyses.reduce((s, a) => s + a.volume, 0)
+      const totalArea = analyses.reduce((s, a) => s + (a.surfaceArea || 0), 0)
       const totalTriangles = analyses.reduce((s, a) => s + a.triangleCount, 0)
       const bbox = new THREE.Box3()
       for (const g of parts) {
@@ -1027,6 +1290,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
         geometries: parts,
         analysis: {
           volume: Math.round(totalVolume * 100) / 100,
+          surfaceArea: Math.round(totalArea * 100) / 100,
           dimensions: { x: Math.round(size.x * 100) / 100, y: Math.round(size.y * 100) / 100, z: Math.round(size.z * 100) / 100 },
           triangleCount: totalTriangles,
           partCount: parts.length,
@@ -1042,6 +1306,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
       for (const p of parts) normalizeGeometryToMillimeters(p)
       const analyses = parts.map((g) => analyzeGeometry(g, '3mf'))
       const totalVolume = analyses.reduce((s, a) => s + a.volume, 0)
+      const totalArea = analyses.reduce((s, a) => s + (a.surfaceArea || 0), 0)
       const totalTriangles = analyses.reduce((s, a) => s + a.triangleCount, 0)
       const bbox = new THREE.Box3()
       for (const g of parts) {
@@ -1054,6 +1319,7 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
         geometries: parts,
         analysis: {
           volume: Math.round(totalVolume * 100) / 100,
+          surfaceArea: Math.round(totalArea * 100) / 100,
           dimensions: { x: Math.round(size.x * 100) / 100, y: Math.round(size.y * 100) / 100, z: Math.round(size.z * 100) / 100 },
           triangleCount: totalTriangles,
           partCount: parts.length,
@@ -1068,9 +1334,34 @@ export const parseModelFileParts = async (file: File): Promise<{ geometries: THR
   }
 }
 
+// Parse a model file and return its parts plus analysis, including the support
+// structures the slicer would have to add for the overhangs it contains.
+export const parseModelFileParts = async (
+  file: File
+): Promise<{ geometries: THREE.BufferGeometry[]; analysis: FileAnalysis }> => {
+  const result = await parseModelFilePartsRaw(file)
+
+  if (!result.analysis.isValid || result.geometries.length === 0) {
+    return result
+  }
+
+  let support: SupportEstimate = { supportVolume: 0, needsSupport: false }
+  try {
+    support = estimateSupport(result.geometries)
+  } catch (error) {
+    // Support estimation is best-effort — never fail the whole quote over it.
+    console.warn('Support estimation failed:', error)
+  }
+
+  return {
+    geometries: result.geometries,
+    analysis: { ...result.analysis, ...support }
+  }
+}
+
 // Load parts ready for rendering (scaled/centered)
 export const loadModelParts = async (file: File): Promise<THREE.BufferGeometry[]> => {
-  const { geometries } = await parseModelFileParts(file)
+  const { geometries } = await parseModelFilePartsRaw(file)
   if (geometries.length === 0) return geometries
 
   // Center and scale the WHOLE assembly with a single transform so multi-part

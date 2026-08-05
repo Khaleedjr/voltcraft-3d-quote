@@ -73,14 +73,16 @@ const QuotePage = () => {
       y: baseAnalysis.dimensions.y * scale,
       z: baseAnalysis.dimensions.z * scale
     }
-    
-    // Volume scales cubically
+
+    // Volume scales cubically, surface area quadratically
     const scaledVolume = baseAnalysis.volume * (scale ** 3)
-    
+
     return {
       ...baseAnalysis,
       dimensions: scaledDimensions,
-      volume: scaledVolume
+      volume: scaledVolume,
+      surfaceArea: baseAnalysis.surfaceArea ? baseAnalysis.surfaceArea * (scale ** 2) : undefined,
+      supportVolume: baseAnalysis.supportVolume ? baseAnalysis.supportVolume * (scale ** 3) : undefined
     }
   }
 
@@ -113,6 +115,9 @@ const QuotePage = () => {
 
       return {
         volume: scaledPerFile.reduce((sum, entry) => sum + entry.volume, 0),
+        surfaceArea: scaledPerFile.reduce((sum, entry) => sum + (entry.surfaceArea || 0), 0),
+        supportVolume: scaledPerFile.reduce((sum, entry) => sum + (entry.supportVolume || 0), 0),
+        needsSupport: scaledPerFile.some((entry) => entry.needsSupport),
         dimensions: {
           x: Math.max(...scaledPerFile.map((entry) => entry.dimensions.x)),
           y: Math.max(...scaledPerFile.map((entry) => entry.dimensions.y)),
@@ -150,7 +155,9 @@ const QuotePage = () => {
           printTime: breakdown.reduce((sum, item) => sum + item.quote.printTime, 0),
           laborCost: breakdown.reduce((sum, item) => sum + item.quote.laborCost, 0),
           totalCost: breakdown.reduce((sum, item) => sum + item.quote.totalCost, 0),
-          weight: Math.round(breakdown.reduce((sum, item) => sum + item.quote.weight, 0) * 10) / 10
+          weight: Math.round(breakdown.reduce((sum, item) => sum + item.quote.weight, 0) * 10) / 10,
+          supportWeight: Math.round(breakdown.reduce((sum, item) => sum + (item.quote.supportWeight || 0), 0) * 10) / 10,
+          hasSupport: breakdown.some((item) => item.quote.hasSupport)
         }
 
         setQuote(aggregatedQuote)

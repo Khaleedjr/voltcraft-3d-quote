@@ -243,6 +243,11 @@ Please confirm next steps. Thank you.
           <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             {quote.weight}g
           </div>
+          {quote.hasSupport && quote.supportWeight ? (
+            <div className="text-xs text-gray-500 dark:text-voltcraft-gray-500 mt-1">
+              incl. {quote.supportWeight}g support
+            </div>
+          ) : null}
         </motion.div>
         
         <motion.div

@@ -154,12 +154,12 @@ const PrintSettingsForm = ({ settings, onSettingsChange, availableColors }: Prin
                 : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
             }`}
           >
-            <div className="font-medium text-gray-900 dark:text-white">No Support</div>
+            <div className="font-medium text-gray-900 dark:text-white">Automatic</div>
             <div className="text-xs text-gray-600 dark:text-voltcraft-gray-400 mt-1">
-              For models with no overhangs
+              Added only if your model has overhangs
             </div>
           </motion.button>
-          
+
           <motion.button
             onClick={() => updateSetting('supportEnabled', true)}
             whileHover={{ scale: 1.02 }}
@@ -170,9 +170,9 @@ const PrintSettingsForm = ({ settings, onSettingsChange, availableColors }: Prin
                 : 'bg-white dark:bg-voltcraft-dark border-2 border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
             }`}
           >
-            <div className="font-medium text-gray-900 dark:text-white">With Support</div>
+            <div className="font-medium text-gray-900 dark:text-white">Always Add Support</div>
             <div className="text-xs text-gray-600 dark:text-voltcraft-gray-400 mt-1">
-              For complex geometries (+15% material)
+              Force support even if none is detected
             </div>
           </motion.button>
         </div>

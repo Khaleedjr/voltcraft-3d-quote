@@ -58,6 +58,9 @@ const FileUpload = ({ onFilesAnalyzed, isAnalyzing, setIsAnalyzing }: FileUpload
 
       const mergedAnalysis: FileAnalysis = {
         volume: analyses.reduce((sum, analysis) => sum + analysis.volume, 0),
+        surfaceArea: analyses.reduce((sum, analysis) => sum + (analysis.surfaceArea || 0), 0),
+        supportVolume: analyses.reduce((sum, analysis) => sum + (analysis.supportVolume || 0), 0),
+        needsSupport: analyses.some((analysis) => analysis.needsSupport),
         dimensions: {
           x: Math.max(...analyses.map((analysis) => analysis.dimensions.x)),
           y: Math.max(...analyses.map((analysis) => analysis.dimensions.y)),
