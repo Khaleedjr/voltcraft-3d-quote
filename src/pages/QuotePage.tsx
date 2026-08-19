@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import FileUpload from '../components/FileUpload'
 import ManualDimensions from '../components/ManualDimensions'
@@ -9,10 +9,13 @@ import { Material, PrintSettings, FileAnalysis, QuoteResult } from '../types'
 import { getDefaultMaterial } from '../data/materials'
 import { calculateQuote, validateDimensions, BUILD_VOLUME } from '../utils/quoteCalculator'
 import { getFileExtension } from '../utils/modelParser'
+import { lazyWithRetry } from '../utils/lazyWithRetry'
+import { getPaymentReturn } from '../components/PaymentReturn'
 import { AlertTriangle, ChevronDown, ChevronUp, Upload, Ruler, Maximize2 } from 'lucide-react'
 
-const ModelViewer = lazy(() => import('../components/ModelViewer'))
-const CheckoutForm = lazy(() => import('../components/CheckoutForm'))
+const ModelViewer = lazyWithRetry(() => import('../components/ModelViewer'))
+const CheckoutForm = lazyWithRetry(() => import('../components/CheckoutForm'))
+const PaymentReturn = lazyWithRetry(() => import('../components/PaymentReturn'))
 
 type Step = 'upload' | 'configure' | 'order'
 type InputMode = 'file' | 'manual'
@@ -30,6 +33,9 @@ interface FileConfig {
 }
 
 const QuotePage = () => {
+  // Detect a payment provider redirect (e.g. returning from Paystack) so we
+  // can verify it at page level, regardless of which wizard step we're on.
+  const paymentReturn = useMemo(() => getPaymentReturn(), [])
   const [currentStep, setCurrentStep] = useState<Step>('upload')
   const [inputMode, setInputMode] = useState<InputMode>('file')
   const [files, setFiles] = useState<File[]>([])
@@ -232,6 +238,26 @@ const QuotePage = () => {
   const selectedMaterial = inputMode === 'file'
     ? (fileConfigs[selectedPreviewIndex]?.material || material)
     : material
+
+  // Returning from a payment provider: verify and show status at page level,
+  // independent of the wizard step (which resets to 'upload' on a fresh load).
+  if (paymentReturn) {
+    return (
+      <div className="min-h-screen pt-24 pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Suspense
+            fallback={
+              <div className="min-h-[40vh] flex items-center justify-center text-gray-500 dark:text-voltcraft-gray-500">
+                Confirming your payment…
+              </div>
+            }
+          >
+            <PaymentReturn info={paymentReturn} />
+          </Suspense>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -673,6 +699,9 @@ const QuotePage = () => {
                   }
                 >
                   <CheckoutForm
+                    onQuantityChange={(quantity) =>
+                      setSettings((prev) => ({ ...prev, quantity }))
+                    }
                     fileName={
                       inputMode === 'file'
                         ? (files.length > 1 ? `${files.length} models` : (files[0]?.name || 'model.stl'))

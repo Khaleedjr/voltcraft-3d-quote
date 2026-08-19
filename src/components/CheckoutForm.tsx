@@ -13,6 +13,7 @@ interface CheckoutFormProps {
   material: Material
   settings: PrintSettings
   quote: QuoteResult
+  onQuantityChange?: (quantity: number) => void
 }
 
 interface SolanaInvoice {
@@ -40,7 +41,7 @@ const INITIAL_FORM_DATA: CustomerInfo = {
   notes: ''
 }
 
-const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settings, quote }: CheckoutFormProps) => {
+const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settings, quote, onQuantityChange }: CheckoutFormProps) => {
   const [formData, setFormData] = useState<CustomerInfo>(INITIAL_FORM_DATA)
   const [shippingZoneId, setShippingZoneId] = useState<string>(SHIPPING_ZONES[0]?.id || '')
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerInfo | 'shippingZone', string>>>({})
@@ -385,7 +386,41 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
           </div>
           <div>
             <span className="text-gray-500 dark:text-voltcraft-gray-500">Quantity</span>
-            <p className="text-gray-900 dark:text-white">{settings.quantity}</p>
+            {onQuantityChange ? (
+              <div className="mt-1 inline-flex items-center rounded-lg border border-gray-300 dark:border-voltcraft-gray-700 overflow-hidden">
+                <button
+                  type="button"
+                  aria-label="Decrease quantity"
+                  onClick={() => onQuantityChange(Math.max(1, settings.quantity - 1))}
+                  disabled={settings.quantity <= 1}
+                  className="w-8 h-8 flex items-center justify-center text-lg font-bold leading-none text-gray-700 dark:text-voltcraft-gray-300 hover:bg-gray-200 dark:hover:bg-voltcraft-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={settings.quantity}
+                  onChange={(e) => {
+                    const n = Math.round(Number(e.target.value))
+                    onQuantityChange(Number.isFinite(n) ? Math.min(100, Math.max(1, n)) : 1)
+                  }}
+                  className="w-12 h-8 text-center bg-transparent text-gray-900 dark:text-white font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  aria-label="Increase quantity"
+                  onClick={() => onQuantityChange(Math.min(100, settings.quantity + 1))}
+                  disabled={settings.quantity >= 100}
+                  className="w-8 h-8 flex items-center justify-center text-lg font-bold leading-none text-gray-700 dark:text-voltcraft-gray-300 hover:bg-gray-200 dark:hover:bg-voltcraft-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <p className="text-gray-900 dark:text-white">{settings.quantity}</p>
+            )}
           </div>
           <div>
             <span className="text-gray-500 dark:text-voltcraft-gray-500">Est. Time</span>
