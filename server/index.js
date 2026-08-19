@@ -400,15 +400,14 @@ const buildOrderFromRequest = (req) => {
   const quote = parseJsonSafely(req.body.quote)
 
   const shipping = getShippingZoneById(shippingZone)
+  const isPickup = shippingZone === 'pickup'
 
   const hasRequiredFields =
     Boolean(name) &&
     Boolean(email) &&
     Boolean(phone) &&
-    Boolean(address) &&
-    Boolean(city) &&
-    Boolean(state) &&
-    Boolean(country) &&
+    // Delivery address is only required when the order ships.
+    (isPickup || (Boolean(address) && Boolean(city) && Boolean(state) && Boolean(country))) &&
     Boolean(shippingZone) &&
     Boolean(fileName) &&
     Boolean(materialName) &&

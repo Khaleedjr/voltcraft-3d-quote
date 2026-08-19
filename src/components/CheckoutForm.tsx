@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import { CustomerInfo, FileAnalysis, Material, PrintSettings, QuoteResult } from '../types'
 import { formatPrice, formatPrintTime } from '../utils/quoteCalculator'
 import { buildApiUrl, fetchWithTimeout, getApiErrorMessage, isAbortTimeoutError, parseApiResponse } from '../utils/api'
-import { FREE_DELIVERY_THRESHOLD_NGN, SHIPPING_ZONES, getShippingZoneById } from '../data/shippingRates'
-import { CheckCircle, CreditCard, Loader2, MapPin, Truck, Wallet } from 'lucide-react'
+import { FREE_DELIVERY_THRESHOLD_NGN, PICKUP_ZONE_ID, SHIPPING_ZONES, getShippingZoneById } from '../data/shippingRates'
+import { CheckCircle, CreditCard, Loader2, MapPin, Store, Truck, Wallet } from 'lucide-react'
 
 interface CheckoutFormProps {
   fileName: string
@@ -44,6 +44,7 @@ const INITIAL_FORM_DATA: CustomerInfo = {
 const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settings, quote, onQuantityChange }: CheckoutFormProps) => {
   const [formData, setFormData] = useState<CustomerInfo>(INITIAL_FORM_DATA)
   const [shippingZoneId, setShippingZoneId] = useState<string>(SHIPPING_ZONES[0]?.id || '')
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery')
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerInfo | 'shippingZone', string>>>({})
   const [isPaystackLoading, setIsPaystackLoading] = useState(false)
   const [isSolanaLoading, setIsSolanaLoading] = useState(false)
@@ -52,9 +53,13 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
   const [solanaInvoice, setSolanaInvoice] = useState<SolanaInvoice | null>(null)
   const [paymentSuccess, setPaymentSuccess] = useState<PaymentSuccess | null>(null)
 
+  const isPickup = deliveryMethod === 'pickup'
+  // Pickup rides through the same shipping plumbing as a zero-fee "zone".
+  const effectiveZoneId = isPickup ? PICKUP_ZONE_ID : shippingZoneId
+
   const selectedShippingZone = useMemo(() => {
-    return getShippingZoneById(shippingZoneId)
-  }, [shippingZoneId])
+    return getShippingZoneById(effectiveZoneId)
+  }, [effectiveZoneId])
 
   const isFreeDeliveryEligible = quote.totalCost >= FREE_DELIVERY_THRESHOLD_NGN
   const baseShippingFee = selectedShippingZone?.fee || 0
@@ -143,11 +148,13 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
       nextErrors.email = 'Please enter a valid email address.'
     }
     if (!formData.phone.trim()) nextErrors.phone = 'Phone number is required.'
-    if (!formData.address?.trim()) nextErrors.address = 'Shipping address is required.'
-    if (!formData.city?.trim()) nextErrors.city = 'City is required.'
-    if (!formData.state?.trim()) nextErrors.state = 'State/Province is required.'
-    if (!formData.country?.trim()) nextErrors.country = 'Country is required.'
-    if (!shippingZoneId || !selectedShippingZone) nextErrors.shippingZone = 'Please select a shipping zone.'
+    if (!isPickup) {
+      if (!formData.address?.trim()) nextErrors.address = 'Shipping address is required.'
+      if (!formData.city?.trim()) nextErrors.city = 'City is required.'
+      if (!formData.state?.trim()) nextErrors.state = 'State/Province is required.'
+      if (!formData.country?.trim()) nextErrors.country = 'Country is required.'
+      if (!shippingZoneId || !selectedShippingZone) nextErrors.shippingZone = 'Please select a shipping zone.'
+    }
 
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
@@ -165,7 +172,7 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
     payload.append('country', formData.country || '')
     payload.append('postalCode', formData.postalCode || '')
     payload.append('notes', formData.notes || '')
-    payload.append('shippingZone', shippingZoneId)
+    payload.append('shippingZone', effectiveZoneId)
     payload.append('fileName', fileName)
     payload.append('materialName', material.shortName)
     payload.append('color', settings.color)
@@ -436,7 +443,11 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
           <div>
             <span className="text-gray-500 dark:text-voltcraft-gray-500">Shipping Fee</span>
             <p className="text-gray-900 dark:text-white font-medium">
-              {isFreeDeliveryEligible ? `FREE (was ${formatPrice(baseShippingFee)})` : formatPrice(shippingFee)}
+              {isPickup
+                ? 'FREE (Pickup)'
+                : isFreeDeliveryEligible
+                ? `FREE (was ${formatPrice(baseShippingFee)})`
+                : formatPrice(shippingFee)}
             </p>
           </div>
           <div>
@@ -448,15 +459,15 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
-          { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your full name' },
-          { key: 'email', label: 'Email Address *', type: 'email', placeholder: 'you@example.com' },
-          { key: 'phone', label: 'Phone Number *', type: 'tel', placeholder: '+234 xxx xxx xxxx' },
-          { key: 'address', label: 'Street Address *', type: 'text', placeholder: 'House number and street' },
-          { key: 'city', label: 'City *', type: 'text', placeholder: 'Lagos' },
-          { key: 'state', label: 'State/Province *', type: 'text', placeholder: 'Lagos State' },
-          { key: 'country', label: 'Country *', type: 'text', placeholder: 'Nigeria' },
-          { key: 'postalCode', label: 'Postal Code', type: 'text', placeholder: '100001' }
-        ].map((field) => (
+          { key: 'name', label: 'Full Name *', type: 'text', placeholder: 'Your full name', deliveryOnly: false },
+          { key: 'email', label: 'Email Address *', type: 'email', placeholder: 'you@example.com', deliveryOnly: false },
+          { key: 'phone', label: 'Phone Number *', type: 'tel', placeholder: '+234 xxx xxx xxxx', deliveryOnly: false },
+          { key: 'address', label: 'Street Address *', type: 'text', placeholder: 'House number and street', deliveryOnly: true },
+          { key: 'city', label: 'City *', type: 'text', placeholder: 'Lagos', deliveryOnly: true },
+          { key: 'state', label: 'State/Province *', type: 'text', placeholder: 'Lagos State', deliveryOnly: true },
+          { key: 'country', label: 'Country *', type: 'text', placeholder: 'Nigeria', deliveryOnly: true },
+          { key: 'postalCode', label: 'Postal Code', type: 'text', placeholder: '100001', deliveryOnly: true }
+        ].filter((field) => !field.deliveryOnly || !isPickup).map((field) => (
           <div key={field.key}>
             <label className="block text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 mb-2">
               {field.label}
@@ -479,32 +490,81 @@ const CheckoutForm = ({ fileName, uploadedFiles = [], analysis, material, settin
         ))}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 mb-2 flex items-center gap-2">
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 flex items-center gap-2">
           <Truck className="w-4 h-4 text-voltcraft-primary" />
-          Shipping Zone *
+          Delivery Method *
         </label>
-        <select
-          value={shippingZoneId}
-          onChange={(event) => {
-            setShippingZoneId(event.target.value)
-            if (errors.shippingZone) {
-              setErrors((prev) => ({ ...prev, shippingZone: undefined }))
-            }
-          }}
-          className={`w-full px-4 py-3 bg-white dark:bg-voltcraft-dark border-2 rounded-lg text-gray-900 dark:text-white focus:outline-none transition-colors ${
-            errors.shippingZone
-              ? 'border-red-500'
-              : 'border-gray-200 dark:border-voltcraft-gray-800 focus:border-voltcraft-primary'
-          }`}
-        >
-          {SHIPPING_ZONES.map((zone) => (
-            <option key={zone.id} value={zone.id}>
-              {zone.label} - {formatPrice(zone.fee)} ({zone.eta})
-            </option>
-          ))}
-        </select>
-        {errors.shippingZone && <p className="text-red-500 text-xs mt-1">{errors.shippingZone}</p>}
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setDeliveryMethod('delivery')}
+            className={`p-3 rounded-lg border-2 text-left transition-all ${
+              !isPickup
+                ? 'border-voltcraft-primary bg-voltcraft-primary/10'
+                : 'border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
+            }`}
+          >
+            <span className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+              <Truck className="w-4 h-4" /> Deliver to me
+            </span>
+            <span className="block text-xs text-gray-500 dark:text-voltcraft-gray-500 mt-1">
+              Shipped to your address
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDeliveryMethod('pickup')}
+            className={`p-3 rounded-lg border-2 text-left transition-all ${
+              isPickup
+                ? 'border-voltcraft-primary bg-voltcraft-primary/10'
+                : 'border-gray-200 dark:border-voltcraft-gray-800 hover:border-voltcraft-gray-600'
+            }`}
+          >
+            <span className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+              <Store className="w-4 h-4" /> Pickup
+            </span>
+            <span className="block text-xs text-gray-500 dark:text-voltcraft-gray-500 mt-1">
+              Collect &mdash; no delivery fee
+            </span>
+          </button>
+        </div>
+
+        {isPickup ? (
+          <div className="rounded-lg border border-gray-200 dark:border-voltcraft-gray-800 bg-gray-50 dark:bg-voltcraft-darker p-3 text-sm text-gray-600 dark:text-voltcraft-gray-400 flex items-start gap-2">
+            <Store className="w-4 h-4 text-voltcraft-primary flex-shrink-0 mt-0.5" />
+            <span>Pick up from our workshop. We&apos;ll email you as soon as your order is printed and ready to collect.</span>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-voltcraft-gray-300 mb-2">
+              Shipping Zone *
+            </label>
+            <select
+              value={shippingZoneId}
+              onChange={(event) => {
+                setShippingZoneId(event.target.value)
+                if (errors.shippingZone) {
+                  setErrors((prev) => ({ ...prev, shippingZone: undefined }))
+                }
+              }}
+              className={`w-full px-4 py-3 bg-white dark:bg-voltcraft-dark border-2 rounded-lg text-gray-900 dark:text-white focus:outline-none transition-colors ${
+                errors.shippingZone
+                  ? 'border-red-500'
+                  : 'border-gray-200 dark:border-voltcraft-gray-800 focus:border-voltcraft-primary'
+              }`}
+            >
+              {SHIPPING_ZONES.map((zone) => (
+                <option key={zone.id} value={zone.id}>
+                  {zone.label} - {formatPrice(zone.fee)} ({zone.eta})
+                </option>
+              ))}
+            </select>
+            {errors.shippingZone && <p className="text-red-500 text-xs mt-1">{errors.shippingZone}</p>}
+          </div>
+        )}
       </div>
 
       <div>

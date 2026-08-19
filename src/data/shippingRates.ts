@@ -7,6 +7,18 @@ export interface ShippingZone {
 
 export const FREE_DELIVERY_THRESHOLD_NGN = 100000
 
+// Workshop pickup: customer collects in person, so there is no delivery fee.
+// Kept separate from SHIPPING_ZONES so it never shows in the delivery-zone
+// dropdown and never becomes the default zone.
+export const PICKUP_ZONE_ID = 'pickup'
+
+export const PICKUP_ZONE: ShippingZone = {
+  id: PICKUP_ZONE_ID,
+  label: 'Workshop Pickup',
+  fee: 0,
+  eta: 'Collect when ready'
+}
+
 export const SHIPPING_ZONES: ShippingZone[] = [
   { id: 'abuja-jabi-zuba', label: 'Abuja (Jabi/Zuba)', fee: 2000, eta: '2-5 business days' },
   { id: 'adamawa-yola', label: 'Adamawa (Yola)', fee: 2000, eta: '2-5 business days' },
@@ -34,5 +46,6 @@ export const SHIPPING_ZONES: ShippingZone[] = [
 ]
 
 export const getShippingZoneById = (zoneId: string): ShippingZone | undefined => {
+  if (zoneId === PICKUP_ZONE_ID) return PICKUP_ZONE
   return SHIPPING_ZONES.find((zone) => zone.id === zoneId)
 }

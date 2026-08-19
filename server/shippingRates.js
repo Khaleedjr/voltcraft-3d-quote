@@ -55,10 +55,17 @@ const parseShippingZonesFromEnv = () => {
   }
 }
 
+export const PICKUP_ZONE_ID = 'pickup'
+
+// Workshop pickup: zero delivery fee. Always resolvable, even when zones are
+// overridden via SHIPPING_RATES_JSON.
+export const PICKUP_ZONE = { id: PICKUP_ZONE_ID, label: 'Workshop Pickup', fee: 0, eta: 'Collect when ready' }
+
 export const SHIPPING_ZONES = parseShippingZonesFromEnv()
 
 export const FREE_DELIVERY_THRESHOLD_NGN = Number(process.env.FREE_DELIVERY_THRESHOLD_NGN || DEFAULT_FREE_DELIVERY_THRESHOLD_NGN)
 
 export const getShippingZoneById = (zoneId) => {
+  if (zoneId === PICKUP_ZONE_ID) return PICKUP_ZONE
   return SHIPPING_ZONES.find((zone) => zone.id === zoneId)
 }
