@@ -709,7 +709,7 @@ const QuotePage = () => {
                     }
                     uploadedFiles={inputMode === 'file' ? files : []}
                     analysis={scaledAnalysis}
-                    material={material}
+                    material={selectedMaterial}
                     settings={settings}
                     quote={quote}
                   />
